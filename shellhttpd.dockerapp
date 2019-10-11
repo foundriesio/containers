@@ -1,0 +1,20 @@
+version: 0.1.0
+name: shellhttpd
+description: Dummy shell script that runs an httpd server using netcat
+
+---
+
+version: '3.2'
+
+services:
+  httpd:
+    image: hub.foundries.io/shellhttpd:latest
+    ports:
+      - 8080:${PORT}
+    environment:
+      MSG: "${MSG}"
+
+---
+
+PORT: 8080
+MSG: Hello World
