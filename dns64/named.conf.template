@@ -1,0 +1,23 @@
+options {
+	directory "/var/bind";
+	dnssec-validation auto;
+	auth-nxdomain no;
+
+	allow-query { any; };
+
+	# Listening on IPv6 is off by default -- use bt0 / wpan0 IPs
+	listen-on-v6 port 53 { fd11:11::1; fd11:22::1; };
+
+	dns64 %NAT64_PREFIX% {
+		exclude { any; };
+		clients { any; };
+	};
+
+	response-policy { zone "rpz"; };
+};
+
+zone "rpz" {
+	type master;
+	file "db.rpz";
+	notify yes;
+};
