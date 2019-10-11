@@ -1,0 +1,19 @@
+version: 0.1.0
+name: x-kiosk
+description: Kiosk web browser
+
+---
+
+version: '3.2'
+
+services:
+  x-kiosk:
+    image: hub.foundries.io/magicman/x-kiosk:latest
+    restart: always
+    privileged: true
+    tty: true
+    command: "--kiosk ${ADDR}"
+
+---
+
+ADDR: http://foundries.io
