@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-FROM alpine:latest
+FROM alpine:3.10
 
 LABEL maintainer="Michael Scott <mike@foundries.io>"
 
