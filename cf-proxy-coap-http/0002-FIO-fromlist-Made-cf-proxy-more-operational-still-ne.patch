@@ -1,0 +1,701 @@
+From a4e7b74934b931e9c4c0882b60407a29040eb2fb Mon Sep 17 00:00:00 2001
+From: Matthias Kovatsch <kovatsch@inf.ethz.ch>
+Date: Thu, 3 Aug 2017 19:31:47 +0200
+Subject: [PATCH 2/4] [FIO fromlist] Made cf-proxy (more) operational (still
+ needs re-impl)
+
+Imported from https://github.com/eclipse/californium/commit/edcb5fdded79de3a950f461d7c694a18573e8d23
+
+Signed-off-by: Matthias Kovatsch <kovatsch@inf.ethz.ch>
+[mike@foundries.io: rebased on branch 2.0.x, leaving out many trivial
+reformating changes.]
+Signed-off-by: Michael Scott <mike@foundries.io>
+---
+ .../californium/proxy/CoapTranslator.java     |   7 +-
+ .../eclipse/californium/proxy/HttpStack.java  |  23 +--
+ .../californium/proxy/HttpTranslator.java     |  76 +++-----
+ .../californium/proxy/ProxyHttpServer.java    |  61 +-----
+ .../proxy/resources/ForwardingResource.java   |  17 +-
+ .../resources/ProxyCoapClientResource.java    |  14 +-
+ .../resources/ProxyHttpClientResource.java    |  13 +-
+ .../examples/ExampleCrossProxy.java           |  22 ++-
+ .../examples/ProxyMessageDeliverer.java       | 174 ++++++++++++++++++
+ 9 files changed, 244 insertions(+), 163 deletions(-)
+ create mode 100644 demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ProxyMessageDeliverer.java
+
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/CoapTranslator.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/CoapTranslator.java
+index 212d4691..fa36afcd 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/CoapTranslator.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/CoapTranslator.java
+@@ -117,16 +117,17 @@ public final class CoapTranslator {
+ 		// the new message
+ 		OptionSet options = new OptionSet(incomingRequest.getOptions());
+ 		options.removeProxyUri();
++		options.removeProxyScheme();
+ 		options.removeBlock1();
+ 		options.removeBlock2();
++		options.removeUriHost();
++		options.removeUriPort();
+ 		options.clearUriPath();
+ 		options.clearUriQuery();
+ 		outgoingRequest.setOptions(options);
+ 		
+ 		// set the proxy-uri as the outgoing uri
+-		if (serverUri != null) {
+-			outgoingRequest.setURI(serverUri);
+-		}
++		outgoingRequest.setURI(serverUri);
+ 
+ 		LOGGER.debug("Incoming request translated correctly");
+ 		return outgoingRequest;
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpStack.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpStack.java
+index b02dfa6f..67a7f980 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpStack.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpStack.java
+@@ -34,6 +34,7 @@ import org.apache.http.HttpResponseInterceptor;
+ import org.apache.http.HttpStatus;
+ import org.apache.http.client.protocol.RequestAcceptEncoding;
+ import org.apache.http.client.protocol.ResponseContentEncoding;
++import org.apache.http.entity.ContentType;
+ import org.apache.http.entity.StringEntity;
+ import org.apache.http.impl.DefaultConnectionReuseStrategy;
+ import org.apache.http.impl.nio.DefaultHttpServerIODispatch;
+@@ -92,7 +93,7 @@ public class HttpStack {
+ 	 * http://proxy-address/PROXY_RESOURCE_NAME/coap-server, the proxying
+ 	 * handler will forward the request desired coap server.
+ 	 */
+-	private static final String PROXY_RESOURCE_NAME = "proxy";
++	private static final String PROXY_RESOURCE_NAME = "/proxy/";
+ 
+ 	/**
+ 	 * The resource associated with the local resources behavior. If a client
+@@ -100,7 +101,7 @@ public class HttpStack {
+ 	 * http://proxy-address/LOCAL_RESOURCE_NAME/coap-resource, the proxying
+ 	 * handler will forward the request to the local resource requested.
+ 	 */
+-	public static final String LOCAL_RESOURCE_NAME = "local";
++	public static final String LOCAL_RESOURCE_NAME = "/local/";
+ 
+ 	private final ConcurrentHashMap<Request, Exchanger<Response>> exchangeMap = new ConcurrentHashMap<Request, Exchanger<Response>>();
+ 
+@@ -170,11 +171,8 @@ public class HttpStack {
+ 			HttpAsyncRequestHandlerRegistry registry = new HttpAsyncRequestHandlerRegistry();
+ 
+ 			// register the handler that will reply to the proxy requests
+-			registry.register("/" + PROXY_RESOURCE_NAME + "/*", new ProxyAsyncRequestHandler(PROXY_RESOURCE_NAME, true));
+-			// register the handler for the frontend
+-			registry.register("/" + LOCAL_RESOURCE_NAME + "/*", new ProxyAsyncRequestHandler(LOCAL_RESOURCE_NAME, false));
+-			// register the default handler for root URIs
+-			// wrapping a common request handler with an async request handler
++			registry.register(PROXY_RESOURCE_NAME + "*", new ProxyAsyncRequestHandler(PROXY_RESOURCE_NAME));
++			// register the default handler for root URIs wrapped in an async request handler
+ 			registry.register("*", new BasicAsyncRequestHandler(new BaseRequestHandler()));
+ 
+ 			// Create server-side HTTP protocol handler
+@@ -237,7 +235,9 @@ public class HttpStack {
+ 			@Override
+ 			public void handle(HttpRequest httpRequest, HttpResponse httpResponse, HttpContext httpContext) throws HttpException, IOException {
+ 				httpResponse.setStatusCode(HttpStatus.SC_OK);
+-				httpResponse.setEntity(new StringEntity("Californium Proxy server"));
++				httpResponse.setEntity(new StringEntity(
++						"<html><body><h1>Californium (Cf) Proxy</h1><form method=\"get\" onsubmit=\"this.action='/proxy/'+this.uri.value;\"><input type=\"text\" size=\"50\" id=\"uri\"/><input type=\"submit\" value=\"GET\"/></form></body></html>",
++						ContentType.TEXT_HTML));
+ 
+ //				if (Bench_Help.DO_LOG) 
+ 					LOGGER.debug("Root request handled");
+@@ -255,20 +255,17 @@ public class HttpStack {
+ 				HttpAsyncRequestHandler<HttpRequest> {
+ 
+ 			private final String localResource;
+-			private final boolean proxyingEnabled;
+ 
+ 			/**
+ 			 * Instantiates a new proxy request handler.
+ 			 * 
+ 			 * @param localResource
+ 			 *            the local resource
+-			 * @param proxyingEnabled
+ 			 */
+-			public ProxyAsyncRequestHandler(String localResource, boolean proxyingEnabled) {
++			public ProxyAsyncRequestHandler(String localResource) {
+ 				super();
+ 
+ 				this.localResource = localResource;
+-				this.proxyingEnabled = proxyingEnabled;
+ 			}
+ 
+ 			/*
+@@ -286,7 +283,7 @@ public class HttpStack {
+ 				final HttpRequestContext httpRequestContext = new HttpRequestContext(httpExchange, httpRequest);
+ 				try {
+ 					// translate the request in a valid coap request
+-					Request coapRequest = new HttpTranslator().getCoapRequest(httpRequest, localResource, proxyingEnabled);
++					Request coapRequest = new HttpTranslator().getCoapRequest(httpRequest, localResource);
+ //					if (Bench_Help.DO_LOG) 
+ 						LOGGER.info("Received HTTP request and translate to {}", coapRequest);
+ 
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpTranslator.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpTranslator.java
+index 4d160a2e..adb64ee0 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpTranslator.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpTranslator.java
+@@ -23,11 +23,9 @@ import static org.eclipse.californium.elements.util.StandardCharsets.ISO_8859_1;
+ import static org.eclipse.californium.elements.util.StandardCharsets.UTF_8;
+ import java.io.IOException;
+ import java.io.UnsupportedEncodingException;
+-import java.net.InetAddress;
+ import java.net.URI;
+ import java.net.URISyntaxException;
+ import java.net.URLDecoder;
+-import java.net.UnknownHostException;
+ import java.nio.ByteBuffer;
+ import java.nio.CharBuffer;
+ import java.nio.charset.CharacterCodingException;
+@@ -210,7 +208,7 @@ public final class HttpTranslator {
+ 		List<Option> optionList = new LinkedList<Option>();
+ 
+ 		// iterate over the headers
+-		for (Header header : headers) {
++		headerLoop : for (Header header : headers) {
+ 			try {
+ 				String headerName = header.getName().toLowerCase();
+ 				
+@@ -277,14 +275,17 @@ public final class HttpTranslator {
+ 				} else if (optionNumber == OptionNumberRegistry.MAX_AGE) {
+ 					int maxAge = 0;
+ 					if (!headerValue.contains("no-cache")) {
+-						headerValue = headerValue.split(",")[0];
+-						if (headerValue != null) {
+-							int index = headerValue.indexOf('=');
+-							try {
+-								maxAge = Integer.parseInt(headerValue.substring(index + 1).trim());
+-							} catch (NumberFormatException e) {
+-								LOGGER.warn("Cannot convert cache control in max-age option", e);
+-								continue;
++						for (String headerValueItem : headerValue.split(",")) {
++							headerValueItem = headerValueItem.trim();
++
++							if (headerValueItem.startsWith("max-age")) {
++								int index = headerValueItem.indexOf('=');
++								try {
++									maxAge = Integer.parseInt(headerValueItem.substring(index + 1).trim());
++								} catch (NumberFormatException e) {
++									LOGGER.warn("Cannot convert cache control in max-age option");
++									continue headerLoop;
++								}
+ 							}
+ 						}
+ 					}
+@@ -394,20 +395,15 @@ public final class HttpTranslator {
+ 	 * @param proxyResource
+ 	 *            the proxy resource, if present in the uri, indicates the need
+ 	 *            of forwarding for the current request
+-	 * @param proxyingEnabled
+-	 *            TODO
+ 	 * 
+ 	 * 
+ 	 * @return the coap request * @throws TranslationException the translation
+ 	 *         exception
+ 	 */
+-	public Request getCoapRequest(HttpRequest httpRequest, String proxyResource, boolean proxyingEnabled) throws TranslationException {
++	public Request getCoapRequest(HttpRequest httpRequest, String proxyResource) throws TranslationException {
+ 		if (httpRequest == null) {
+ 			throw new IllegalArgumentException("httpRequest == null");
+ 		}
+-		if (proxyResource == null) {
+-			throw new IllegalArgumentException("proxyResource == null");
+-		}
+ 
+ 		// get the http method
+ 		String httpMethod = httpRequest.getRequestLine().getMethod().toLowerCase();
+@@ -431,8 +427,6 @@ public final class HttpTranslator {
+ 
+ 		// get the uri
+ 		String uriString = httpRequest.getRequestLine().getUri();
+-		// remove the initial "/"
+-		uriString = uriString.substring(1);
+ 
+ 		// decode the uri to translate the application/x-www-form-urlencoded
+ 		// format
+@@ -454,42 +448,21 @@ public final class HttpTranslator {
+ 		// proxy resource: /proxy
+ 		// coap server: vslab-dhcp-17.inf.ethz.ch:5684
+ 		// coap resource: helloWorld
+-		if (uriString.matches(".?" + proxyResource + ".*")) {
+-
+-			// find the first occurrence of the proxy resource
+-			int index = uriString.indexOf(proxyResource);
+-			// delete the slash
+-			index = uriString.indexOf('/', index);
+-			uriString = uriString.substring(index + 1);
+-
+-			if (proxyingEnabled) {
+-				// if the uri hasn't the indication of the scheme, add it
+-				if (!uriString.matches("^coaps?://.*")) {
+-					uriString = "coap://" + uriString;
+-				}
++		if (uriString.startsWith(proxyResource)) {
+ 
+-				// the uri will be set as a proxy-uri option
+-				coapRequest.getOptions().setProxyUri(uriString);
+-			} else {
+-				coapRequest.setURI(uriString);
+-			}
++			// extract embedded URI
++			uriString = uriString.substring(proxyResource.length());
+ 
+-			// set the proxy as the sender to receive the response correctly
+-			try {
+-				// TODO check with multihomed hosts
+-				InetAddress localHostAddress = InetAddress.getLocalHost();
+-				coapRequest.setDestination(localHostAddress);
+-				// TODO: setDestinationPort???
+-			} catch (UnknownHostException e) {
+-				LOGGER.warn("Cannot get the localhost address", e);
+-				throw new TranslationException("Cannot get the localhost address: " + e.getMessage());
++			// if the uri hasn't the indication of the scheme, add it
++			if (!uriString.matches("^coaps?://.*")) {
++				uriString = "coap://" + uriString;
+ 			}
+-		} else {
+-			// if the uri does not contains the proxy resource, it means the
+-			// request is local to the proxy and it shouldn't be forwarded
++			// the proxy internally always uses the Proxy-Uri option
++			coapRequest.getOptions().setProxyUri(uriString);
+ 
+-			// set the uri string as uri-path option
+-			coapRequest.getOptions().setUriPath(uriString);
++		} else {
++			LOGGER.warn("Malrouted request: " + httpRequest.getRequestLine());
++			return null;
+ 		}
+ 
+ 		// translate the http headers in coap options
+@@ -845,6 +818,7 @@ public final class HttpTranslator {
+ 		for (Header header : headers) {
+ 			httpRequest.addHeader(header);
+ 		}
++		httpRequest.setHeader("Connection", "close");
+ 
+ 		return httpRequest;
+ 	}
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyHttpServer.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyHttpServer.java
+index 497a1059..60a8b8e4 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyHttpServer.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyHttpServer.java
+@@ -20,13 +20,10 @@ package org.eclipse.californium.proxy;
+ 
+ import java.io.IOException;
+ import java.net.SocketException;
+-import java.net.URI;
+-import java.net.URISyntaxException;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+ import org.eclipse.californium.core.CoapServer;
+-import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+ import org.eclipse.californium.core.coap.CoAP.Type;
+ import org.eclipse.californium.core.coap.Request;
+ import org.eclipse.californium.core.coap.Response;
+@@ -45,9 +42,6 @@ import org.eclipse.californium.proxy.resources.StatsResource;
+ public class ProxyHttpServer {
+ 
+ 	private final static Logger LOGGER = LoggerFactory.getLogger(ProxyHttpServer.class.getCanonicalName());
+-	
+-	private static final String PROXY_COAP_CLIENT = "proxy/coapClient";
+-	private static final String PROXY_HTTP_CLIENT = "proxy/httpClient";
+ 
+ 	private final ProxyCacheResource cacheResource = new ProxyCacheResource(true);
+ 	private final StatsResource statsResource = new StatsResource(cacheResource);
+@@ -132,63 +126,10 @@ public class ProxyHttpServer {
+ 			exchange.sendResponse(response);
+ 			return;
+ 		} else {
+-
+-			// edit the request to be correctly forwarded if the proxy-uri is
+-			// set
+-			if (request.getOptions().hasProxyUri()) {
+-				try {
+-					manageProxyUriRequest(request);
+-					LOGGER.info("after manageProxyUriRequest: {}", request);
+-
+-				} catch (URISyntaxException e) {
+-					LOGGER.warn(String.format("Proxy-uri malformed: %s", request.getOptions().getProxyUri()));
+-
+-					exchange.sendResponse(new Response(ResponseCode.BAD_OPTION));
+-				}
+-			}
+-
++			// HttpTranslator set Proxy-Uri from HTTP URI template
+ 			// handle the request as usual
+ 			proxyCoapResolver.forwardRequest(exchange);
+-			/*
+-			 * Martin:
+-			 * Originally, the request was delivered to the ProxyCoAP2Coap which was at the path
+-			 * proxy/coapClient or to proxy/httpClient
+-			 * This approach replaces this implicit fuzzy connection with an explicit
+-			 * and dynamically changeable one.
+-			 */
+-		}
+-	}
+-
+-	/**
+-	 * Manage proxy uri request.
+-	 * 
+-	 * @param request
+-	 *            the request
+-	 * @throws URISyntaxException
+-	 *             the uRI syntax exception
+-	 */
+-	private void manageProxyUriRequest(Request request) throws URISyntaxException {
+-		// check which schema is requested
+-		URI proxyUri = new URI(request.getOptions().getProxyUri());
+-
+-		// the local resource that will abstract the client part of the
+-		// proxy
+-		String clientPath;
+-
+-		// switch between the schema requested
+-		if (proxyUri.getScheme() != null && proxyUri.getScheme().matches("^http.*")) {
+-			// the local resource related to the http client
+-			clientPath = PROXY_HTTP_CLIENT;
+-		} else {
+-			// the local resource related to the http client
+-			clientPath = PROXY_COAP_CLIENT;
+ 		}
+-
+-		LOGGER.info("Chose {} as clientPath", clientPath);
+-
+-		// set the path in the request to be forwarded correctly
+-		request.getOptions().setUriPath(clientPath);
+-		
+ 	}
+ 
+ 	protected void responseProduced(Request request, Response response) {
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ForwardingResource.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ForwardingResource.java
+index 88686b50..90d47e5d 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ForwardingResource.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ForwardingResource.java
+@@ -19,20 +19,23 @@ package org.eclipse.californium.proxy.resources;
+ 
+ import org.eclipse.californium.compat.CompletableFuture;
+ import org.eclipse.californium.compat.Consumer;
+-import org.eclipse.californium.core.CoapResource;
++import java.util.concurrent.Executors;
++
+ import org.eclipse.californium.core.coap.Request;
+ import org.eclipse.californium.core.coap.Response;
+ import org.eclipse.californium.core.network.Exchange;
++import org.eclipse.californium.core.server.resources.ConcurrentCoapResource;
+ 
+ 
+-public abstract class ForwardingResource extends CoapResource {
++/**
++ * The ForwardingResource uses an unlimited thread pool to handle requests,
++ * as it is unknown how long individual requests might take.
++ */
++public abstract class ForwardingResource extends ConcurrentCoapResource {
+ 
+ 	public ForwardingResource(String resourceIdentifier) {
+-		super(resourceIdentifier);
+-	}
+-
+-	public ForwardingResource(String resourceIdentifier, boolean hidden) {
+-		super(resourceIdentifier, hidden);
++		super(resourceIdentifier, Executors.newCachedThreadPool());
++		this.setVisible(false);
+ 	}
+ 
+ 	@Override
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ProxyCoapClientResource.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ProxyCoapClientResource.java
+index 1ef2a8fd..96ee9113 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ProxyCoapClientResource.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ProxyCoapClientResource.java
+@@ -39,15 +39,15 @@ import org.slf4j.LoggerFactory;
+ public class ProxyCoapClientResource extends ForwardingResource {
+ 
+ 	private static final Logger LOGGER = LoggerFactory.getLogger(ProxyCoapClientResource.class);
++	private long timeout;
+ 
+ 	public ProxyCoapClientResource() {
+-		this("coapClient");
++		this(100000); // 100 s
+ 	} 
+ 	
+-	public ProxyCoapClientResource(String name) {
+-		// set the resource hidden
+-		super(name, true);
+-		getAttributes().setTitle("Forward the requests to a CoAP server.");
++	public ProxyCoapClientResource(long timeout) {
++		super("coap2coap");
++		this.timeout = timeout;
+ 	}
+ 
+ 	@Override
+@@ -63,10 +63,6 @@ public class ProxyCoapClientResource extends ForwardingResource {
+ 			return future;
+ 		}
+ 
+-		// remove the fake uri-path
+-		// FIXME: HACK // TODO: why? still necessary in new Cf?
+-		incomingRequest.getOptions().clearUriPath();
+-
+ 		final EndpointManager endpointManager = EndPointManagerPool.getManager();
+ 
+ 		// create a new request to forward to the requested coap server
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ProxyHttpClientResource.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ProxyHttpClientResource.java
+index 119c3b95..20bbae1c 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ProxyHttpClientResource.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/resources/ProxyHttpClientResource.java
+@@ -52,15 +52,11 @@ public class ProxyHttpClientResource extends ForwardingResource {
+ 	private static final CloseableHttpAsyncClient asyncClient = HttpClientFactory.createClient();
+ 
+ 	public ProxyHttpClientResource() {
+-		// set the resource hidden
+-//		this("proxy/httpClient");
+-		this("httpClient");
++		this(100000);
+ 	}
+ 
+-	public ProxyHttpClientResource(String name) {
+-		// set the resource hidden
+-		super(name, true);
+-		getAttributes().setTitle("Forward the requests to a HTTP client.");
++	public ProxyHttpClientResource(long timeout) {
++		super("httpClient");
+ 	}
+ 
+ 	@Override
+@@ -75,9 +71,6 @@ public class ProxyHttpClientResource extends ForwardingResource {
+ 			return future;
+ 		}
+ 
+-		// remove the fake uri-path // TODO: why? still necessary in new Cf?
+-		incomingCoapRequest.getOptions().clearUriPath();; // HACK
+-
+ 		// get the proxy-uri set in the incoming coap request
+ 		URI proxyUri;
+ 		try {
+diff --git a/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ExampleCrossProxy.java b/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ExampleCrossProxy.java
+index 4df9236a..abcb24a0 100755
+--- a/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ExampleCrossProxy.java
++++ b/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ExampleCrossProxy.java
+@@ -43,24 +43,26 @@ import org.eclipse.californium.proxy.resources.ProxyHttpClientResource;
+ public class ExampleCrossProxy {
+ 	
+ 	private static final int PORT = NetworkConfig.getStandard().getInt(NetworkConfig.Keys.COAP_PORT);
++	private static final int HTTP_PORT = NetworkConfig.getStandard().getInt(NetworkConfig.Keys.HTTP_PORT);
+ 
+-	private CoapServer targetServerA;
++	private CoapServer coapProxy;
+ 	
+ 	public ExampleCrossProxy() throws IOException {
+-		ForwardingResource coap2coap = new ProxyCoapClientResource("coap2coap");
+-		ForwardingResource coap2http = new ProxyHttpClientResource("coap2http");
++		ForwardingResource coap2coap = new ProxyCoapClientResource(NetworkConfig.getStandard().getLong(NetworkConfig.Keys.HTTP_SERVER_SOCKET_TIMEOUT));
++		ForwardingResource coap2http = new ProxyHttpClientResource(NetworkConfig.getStandard().getLong(NetworkConfig.Keys.HTTP_SERVER_SOCKET_TIMEOUT));
+ 		
+ 		// Create CoAP Server on PORT with proxy resources form CoAP to CoAP and HTTP
+-		targetServerA = new CoapServer(PORT);
+-		targetServerA.add(coap2coap);
+-		targetServerA.add(coap2http);
+-		targetServerA.add(new TargetResource("target"));
+-		targetServerA.start();
++		coapProxy = new CoapServer(PORT);
+ 		
+-		ProxyHttpServer httpServer = new ProxyHttpServer(8080);
++		coapProxy.setMessageDeliverer(new ProxyMessageDeliverer(coapProxy.getRoot(), coap2coap, coap2http));
++
++		coapProxy.add(new TargetResource("test"));
++		coapProxy.start();
++
++		ProxyHttpServer httpServer = new ProxyHttpServer(HTTP_PORT);
+ 		httpServer.setProxyCoapResolver(new DirectProxyCoapResolver(coap2coap));
+ 		
+-		System.out.println("CoAP resource \"target\" available over HTTP at: http://localhost:8080/proxy/coap://localhost:PORT/target");
++		System.out.println("CoAP resource \"test\" available over HTTP at: http://localhost:"+HTTP_PORT+"/proxy/coap://localhost:"+PORT+"/test");
+ 	}
+ 	
+ 	/**
+diff --git a/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ProxyMessageDeliverer.java b/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ProxyMessageDeliverer.java
+new file mode 100644
+index 00000000..129fd938
+--- /dev/null
++++ b/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ProxyMessageDeliverer.java
+@@ -0,0 +1,174 @@
++package org.eclipse.californium.examples;
++
++import java.net.InetSocketAddress;
++import java.util.LinkedList;
++import java.util.List;
++import java.util.concurrent.Executor;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++import org.eclipse.californium.core.coap.Request;
++import org.eclipse.californium.core.coap.Response;
++import org.eclipse.californium.core.coap.CoAP.Code;
++import org.eclipse.californium.core.coap.CoAP.ResponseCode;
++import org.eclipse.californium.core.network.Exchange;
++import org.eclipse.californium.core.observe.ObserveManager;
++import org.eclipse.californium.core.observe.ObserveRelation;
++import org.eclipse.californium.core.observe.ObservingEndpoint;
++import org.eclipse.californium.core.server.MessageDeliverer;
++import org.eclipse.californium.core.server.resources.Resource;
++import org.eclipse.californium.proxy.resources.ForwardingResource;
++
++public final class ProxyMessageDeliverer implements MessageDeliverer {
++
++	private static final Logger LOGGER = LoggerFactory.getLogger(ProxyMessageDeliverer.class.getCanonicalName());
++
++	/* The root of all resources */
++	private final Resource root;
++
++	private ForwardingResource coap2coap;
++	private final ForwardingResource coap2http;
++
++	/* The manager of the observe mechanism for this server */
++	private final ObserveManager observeManager = new ObserveManager();
++
++	/**
++	 * Constructs a default message deliverer that delivers requests to the
++	 * resources rooted at the specified root.
++	 *
++	 * @param root the root resource
++	 */
++	public ProxyMessageDeliverer(final Resource root, ForwardingResource coap, ForwardingResource http) {
++		this.root = root;
++		this.coap2coap = coap;
++		this.coap2http = http;
++	}
++
++	/* (non-Javadoc)
++	 * @see org.eclipse.californium.MessageDeliverer#deliverRequest(org.eclipse.californium.network.Exchange)
++	 */
++	@Override
++	public void deliverRequest(final Exchange exchange) {
++		Request request = exchange.getRequest();
++		final Resource resource;
++
++		if (request.getOptions().hasProxyUri()) {
++			if (request.getOptions().getProxyUri().startsWith("http")) {
++				resource = coap2http;
++			} else {
++				resource = coap2coap;
++			}
++
++		} else if (request.getOptions().hasProxyScheme()) {
++			if (request.getOptions().getProxyScheme().startsWith("http")) {
++				resource = coap2http;
++			} else {
++				resource = coap2coap;
++			}
++			// internally only Proxy-Uri is evaluated, Uri-Path ignored for proxy requests
++			request.getOptions().setProxyUri(request.getURI());
++
++		} else {
++			LOGGER.info("Local request to " + request.getURI());
++			List<String> path = request.getOptions().getUriPath();
++			resource = findResource(path);
++		}
++
++		if (resource != null) {
++			checkForObserveOption(exchange, resource);
++
++			// Get the executor and let it process the request
++			Executor executor = resource.getExecutor();
++			if (executor != null) {
++				executor.execute(new Runnable() {
++					public void run() {
++						resource.handleRequest(exchange);
++					} });
++			} else {
++				resource.handleRequest(exchange);
++			}
++		} else {
++			LOGGER.info("Did not find resource {0} requested by {1}:{2}",
++					new Object[]{request.getOptions().getUriPath(), request.getSource(), request.getSourcePort()});
++			exchange.sendResponse(new Response(ResponseCode.NOT_FOUND));
++		}
++	}
++
++	/**
++	 * Checks whether an observe relationship has to be established or canceled.
++	 * This is done here to have a server-global observeManager that holds the
++	 * set of remote endpoints for all resources. This global knowledge is required
++	 * for efficient orphan handling.
++	 *
++	 * @param exchange
++	 *            the exchange of the current request
++	 * @param resource
++	 *            the target resource
++	 * @param path
++	 *            the path to the resource
++	 */
++	private void checkForObserveOption(final Exchange exchange, final Resource resource) {
++		Request request = exchange.getRequest();
++		if (request.getCode() != Code.GET) {
++			return;
++		}
++
++		InetSocketAddress source = new InetSocketAddress(request.getSource(), request.getSourcePort());
++
++		if (request.getOptions().hasObserve() && resource.isObservable()) {
++
++			if (request.getOptions().getObserve()==0) {
++				// Requests wants to observe and resource allows it :-)
++				LOGGER.debug("Initiate an observe relation between {0}:{1} and resource {2}",
++					     new Object[]{request.getSource(), request.getSourcePort(), resource.getURI()});
++				ObservingEndpoint remote = observeManager.findObservingEndpoint(source);
++				ObserveRelation relation = new ObserveRelation(remote, resource, exchange);
++				remote.addObserveRelation(relation);
++				exchange.setRelation(relation);
++				// all that's left is to add the relation to the resource which
++				// the resource must do itself if the response is successful
++
++			} else if (request.getOptions().getObserve() == 1) {
++				// Observe defines 1 for canceling
++				ObserveRelation relation = observeManager.getRelation(source, request.getToken());
++				if (relation != null) {
++					relation.cancel();
++				}
++			}
++		}
++	}
++
++	/**
++	 * Searches in the resource tree for the specified path. A parent resource
++	 * may accept requests to subresources, e.g., to allow addresses with
++	 * wildcards like <code>coap://example.com:5683/devices/*</code>
++	 *
++	 * @param list the path as list of resource names
++	 * @return the resource or null if not found
++	 */
++	private Resource findResource(final List<String> list) {
++		LinkedList<String> path = new LinkedList<String>(list);
++		Resource current = root;
++		while (!path.isEmpty() && current != null) {
++			String name = path.removeFirst();
++			current = current.getChild(name);
++		}
++		return current;
++	}
++
++	/* (non-Javadoc)
++	 * @see org.eclipse.californium.MessageDeliverer#deliverResponse(org.eclipse.californium.network.Exchange, org.eclipse.californium.coap.Response)
++	 */
++	@Override
++	public void deliverResponse(Exchange exchange, Response response) {
++		if (response == null) {
++			throw new NullPointerException("Response must not be null");
++		} else if (exchange == null) {
++			throw new NullPointerException("Exchange must not be null");
++		} else if (exchange.getRequest() == null) {
++			throw new IllegalArgumentException("Exchange does not contain request");
++		} else {
++			exchange.getRequest().setResponse(response);
++		}
++	}
++}
+-- 
+2.17.1
+
