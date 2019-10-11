@@ -14,7 +14,7 @@
 #
 
 # STAGE 1
-FROM alpine:latest as cf-proxy-dev
+FROM alpine:3.10 as cf-proxy-dev
 
 LABEL maintainer="Michael Scott <mike@foundries.io>"
 

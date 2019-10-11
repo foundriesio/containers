@@ -1,5 +1,5 @@
 # STAGE 1
-FROM alpine:latest as jool-dev
+FROM alpine:3.10 as jool-dev
 
 LABEL maintainer="Michael Scott <mike@foundries.io>"
 
@@ -23,7 +23,7 @@ RUN \
 	make install
 
 # STAGE 2
-FROM alpine:latest
+FROM alpine:3.10
 
 LABEL maintainer="Michael Scott <mike@foundries.io>"
 

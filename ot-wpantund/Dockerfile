@@ -14,7 +14,7 @@
 #
 
 # STAGE 1
-FROM alpine:latest as wpantund-dev
+FROM alpine:3.10 as wpantund-dev
 
 # Based on work by Marcin K Szczodrak
 LABEL maintainer="Michael Scott <mike@foundries.io>"
@@ -69,7 +69,7 @@ RUN cd ~/ && \
 	cp tools/pskc /usr/local/sbin/
 
 # STAGE 2
-FROM alpine:latest
+FROM alpine:3.10
 
 LABEL maintainer="Michael Scott <mike@foundries.io>"
 
