@@ -1,0 +1,371 @@
+From 7f87602553724c6cafe1c26aba971fe5233796d6 Mon Sep 17 00:00:00 2001
+From: Matthias Kovatsch <kovatsch@inf.ethz.ch>
+Date: Fri, 4 Aug 2017 17:04:00 +0200
+Subject: [PATCH 3/4] [FIO fromlist] californium-proxy fixes
+
+Imported from: https://github.com/eclipse/californium/commit/0dbcd87bc8880974e4532b2d2c637a46dbfe86b5
+
+[mike@foundries.io: rebased on 2.0.x branch, leaving out many trival
+reformating changes.]
+Signed-off-by: Michael Scott <mike@foundries.io>
+---
+ .../proxy/DirectProxyCoapResolver.java        | 53 ----------------
+ .../eclipse/californium/proxy/HttpStack.java  |  2 +-
+ .../californium/proxy/HttpTranslator.java     | 61 +++++--------------
+ .../californium/proxy/ProxyCoapResolver.java  | 26 --------
+ .../californium/proxy/ProxyHttpServer.java    | 25 +++-----
+ .../examples/ExampleCrossProxy.java           |  4 +-
+ 6 files changed, 25 insertions(+), 146 deletions(-)
+ delete mode 100755 californium-proxy/src/main/java/org/eclipse/californium/proxy/DirectProxyCoapResolver.java
+ delete mode 100755 californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyCoapResolver.java
+
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/DirectProxyCoapResolver.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/DirectProxyCoapResolver.java
+deleted file mode 100755
+index 94b78eed..00000000
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/DirectProxyCoapResolver.java
++++ /dev/null
+@@ -1,53 +0,0 @@
+-/*******************************************************************************
+- * Copyright (c) 2015, 2017 Institute for Pervasive Computing, ETH Zurich and others.
+- * 
+- * All rights reserved. This program and the accompanying materials
+- * are made available under the terms of the Eclipse Public License v1.0
+- * and Eclipse Distribution License v1.0 which accompany this distribution.
+- * 
+- * The Eclipse Public License is available at
+- *    http://www.eclipse.org/legal/epl-v10.html
+- * and the Eclipse Distribution License is available at
+- *    http://www.eclipse.org/org/documents/edl-v10.html.
+- * 
+- * Contributors:
+- *    Matthias Kovatsch - creator and main architect
+- *    Martin Lanter - architect and re-implementation
+- *    Francesco Corazza - HTTP cross-proxy
+- *    Bosch Software Innovations GmbH - migrate to SLF4J
+- ******************************************************************************/
+-package org.eclipse.californium.proxy;
+-
+-import org.slf4j.Logger;
+-import org.slf4j.LoggerFactory;
+-
+-import org.eclipse.californium.core.network.Exchange;
+-import org.eclipse.californium.proxy.resources.ForwardingResource;
+-
+-
+-public class DirectProxyCoapResolver implements ProxyCoapResolver {
+-
+-	private final static Logger LOGGER = LoggerFactory.getLogger(DirectProxyCoapResolver.class.getCanonicalName());
+-	
+-	private ForwardingResource proxyCoapClientResource;
+-	
+-	public DirectProxyCoapResolver() { }
+-	
+-	public DirectProxyCoapResolver(ForwardingResource proxyCoapClientResource) {
+-		this.proxyCoapClientResource = proxyCoapClientResource;
+-	}
+-
+-	public ForwardingResource getProxyCoapClientResource() {
+-		return proxyCoapClientResource;
+-	}
+-
+-	public void setProxyCoapClientResource(ForwardingResource proxyCoapClientResource) {
+-		this.proxyCoapClientResource = proxyCoapClientResource;
+-	}
+-
+-	@Override
+-	public void forwardRequest(Exchange exchange) {
+-		LOGGER.debug("Forward CoAP request to ProxyCoap2Coap: {}", exchange.getRequest());
+-		proxyCoapClientResource.handleRequest(exchange);
+-	}
+-}
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpStack.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpStack.java
+index 67a7f980..5328d29e 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpStack.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpStack.java
+@@ -236,7 +236,7 @@ public class HttpStack {
+ 			public void handle(HttpRequest httpRequest, HttpResponse httpResponse, HttpContext httpContext) throws HttpException, IOException {
+ 				httpResponse.setStatusCode(HttpStatus.SC_OK);
+ 				httpResponse.setEntity(new StringEntity(
+-						"<html><body><h1>Californium (Cf) Proxy</h1><form method=\"get\" onsubmit=\"this.action='/proxy/'+this.uri.value;\"><input type=\"text\" size=\"50\" id=\"uri\"/><input type=\"submit\" value=\"GET\"/></form></body></html>",
++						"<html><body><h1>Californium (Cf) Proxy</h1>URI Template <tt>http://localhost:8080/proxy/{coap-uri}</tt> or use this form: <form method=\"get\" onsubmit=\"this.action='/proxy/'+this.uri.value;\"><input type=\"text\" size=\"50\" id=\"uri\"/><input type=\"submit\" value=\"GET\"/></form></body></html>",
+ 						ContentType.TEXT_HTML));
+ 
+ //				if (Bench_Help.DO_LOG) 
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpTranslator.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpTranslator.java
+index adb64ee0..c4d725c0 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpTranslator.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/HttpTranslator.java
+@@ -20,19 +20,12 @@
+ package org.eclipse.californium.proxy;
+ 
+ import static org.eclipse.californium.elements.util.StandardCharsets.ISO_8859_1;
+-import static org.eclipse.californium.elements.util.StandardCharsets.UTF_8;
+ import java.io.IOException;
+ import java.io.UnsupportedEncodingException;
+ import java.net.URI;
+ import java.net.URISyntaxException;
+ import java.net.URLDecoder;
+-import java.nio.ByteBuffer;
+-import java.nio.CharBuffer;
+-import java.nio.charset.CharacterCodingException;
+ import java.nio.charset.Charset;
+-import java.nio.charset.CharsetDecoder;
+-import java.nio.charset.CharsetEncoder;
+-import java.nio.charset.UnmappableCharacterException;
+ import java.nio.charset.UnsupportedCharsetException;
+ import java.util.LinkedList;
+ import java.util.List;
+@@ -62,6 +55,7 @@ import org.apache.http.message.BasicHttpRequest;
+ import org.apache.http.message.BasicRequestLine;
+ import org.apache.http.message.BasicStatusLine;
+ import org.apache.http.util.EntityUtils;
++import org.eclipse.californium.core.coap.CoAP;
+ import org.eclipse.californium.core.coap.CoAP.Code;
+ import org.eclipse.californium.core.coap.CoAP.ResponseCode;
+ import org.eclipse.californium.core.coap.CoAP.Type;
+@@ -348,17 +342,14 @@ public final class HttpTranslator {
+ 			payload = EntityUtils.toByteArray(httpEntity);
+ 			if (payload != null && payload.length > 0) {
+ 
+-				// the only supported charset in CoAP is UTF-8
+-				Charset coapCharset = UTF_8;
+-
+ 				// get the charset for the http entity
+ 				ContentType httpContentType = ContentType.getOrDefault(httpEntity);
+ 				Charset httpCharset = httpContentType.getCharset();
+ 
+ 				// check if the charset is the one allowed by coap
+-				if (httpCharset != null && !httpCharset.equals(coapCharset)) {
++				if (httpCharset != null && !httpCharset.equals(CoAP.UTF8_CHARSET)) {
+ 					// translate the payload to the utf-8 charset
+-					payload = changeCharset(payload, httpCharset, coapCharset);
++					payload = changeCharset(payload, httpCharset, CoAP.UTF8_CHARSET);
+ 				}
+ 			}
+ 		} catch (IOException e) {
+@@ -708,11 +699,10 @@ public final class HttpTranslator {
+ 
+ 		// iterate over each option
+ 		for (Option option : optionList) {
+-			// skip content-type because it should be translated while handling
+-			// the payload; skip proxy-uri because it has to be translated in a
+-			// different way
++			// skip content-type because it should be translated while handling the payload
++			// skip ETag for correct formatting
+ 			int optionNumber = option.getNumber();
+-			if (optionNumber != OptionNumberRegistry.CONTENT_FORMAT && optionNumber != OptionNumberRegistry.PROXY_URI) {
++			if (optionNumber != OptionNumberRegistry.CONTENT_FORMAT && optionNumber != OptionNumberRegistry.ETAG) {
+ 				// get the mapping from the property file
+ 				String headerName = httpTranslationProperties.getProperty(KEY_COAP_OPTION + optionNumber);
+ 
+@@ -725,7 +715,7 @@ public final class HttpTranslator {
+ 					} else if (OptionNumberRegistry.getFormatByNr(optionNumber) == optionFormats.INTEGER) {
+ 						stringOptionValue = Integer.toString(option.getIntegerValue());
+ 					} else if (OptionNumberRegistry.getFormatByNr(optionNumber) == optionFormats.OPAQUE) {
+-						stringOptionValue = new String(option.getValue());
++						stringOptionValue = option.toValueString();
+ 					} else {
+ 						// if the option is not formattable, skip it
+ 						continue;
+@@ -740,6 +730,9 @@ public final class HttpTranslator {
+ 					Header header = new BasicHeader(headerName, stringOptionValue);
+ 					headers.add(header);
+ 				}
++			} else if (optionNumber == OptionNumberRegistry.ETAG) {
++				Header header = new BasicHeader("etag", "\"" + option.toValueString().substring(2) + "\"");
++				headers.add(header);
+ 			}
+ 		}
+ 
+@@ -907,6 +900,8 @@ public final class HttpTranslator {
+ 				httpResponse.setHeader("content-type", contentType.toString());
+ 			}
+ 		}
++		LOGGER.info("Translated " + coapResponse);
++		LOGGER.info("To " + httpResponse);
+ 	}
+ 	
+ 	public Properties getHttpTranslationProperties() {
+@@ -923,35 +918,9 @@ public final class HttpTranslator {
+ 	 * @param toCharset
+ 	 *            the to charset
+ 	 * 
+-	 * 
+-	 * @return the byte[] * @throws TranslationException the translation
+-	 *         exception
++	 * @return the byte[] the translation
+ 	 */
+-	private byte[] changeCharset(byte[] payload, Charset fromCharset, Charset toCharset) throws TranslationException {
+-		try {
+-			// decode with the source charset
+-			CharsetDecoder decoder = fromCharset.newDecoder();
+-			CharBuffer charBuffer = decoder.decode(ByteBuffer.wrap(payload));
+-			decoder.flush(charBuffer);
+-
+-			// encode to the destination charset
+-			CharsetEncoder encoder = toCharset.newEncoder();
+-			ByteBuffer byteBuffer = encoder.encode(charBuffer);
+-			encoder.flush(byteBuffer);
+-			payload = byteBuffer.array();
+-		} catch (UnmappableCharacterException e) {
+-			// thrown when an input character (or byte) sequence is valid but
+-			// cannot be mapped to an output byte (or character) sequence.
+-			// If the character sequence starting at the input buffer's current
+-			// position cannot be mapped to an equivalent byte sequence and the
+-			// current unmappable-character
+-			LOGGER.debug("Charset translation: cannot mapped to an output char byte", e);
+-			return null;
+-		} catch (CharacterCodingException e) {
+-			LOGGER.warn("Problem in the decoding/encoding charset", e);
+-			throw new TranslationException("Problem in the decoding/encoding charset", e);
+-		}
+-
+-		return payload;
++	private static byte[] changeCharset(byte[] payload, Charset fromCharset, Charset toCharset) {
++		return new String(payload, fromCharset).getBytes(toCharset);
+ 	}
+ }
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyCoapResolver.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyCoapResolver.java
+deleted file mode 100755
+index 9de7399f..00000000
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyCoapResolver.java
++++ /dev/null
+@@ -1,26 +0,0 @@
+-/*******************************************************************************
+- * Copyright (c) 2015 Institute for Pervasive Computing, ETH Zurich and others.
+- * 
+- * All rights reserved. This program and the accompanying materials
+- * are made available under the terms of the Eclipse Public License v1.0
+- * and Eclipse Distribution License v1.0 which accompany this distribution.
+- * 
+- * The Eclipse Public License is available at
+- *    http://www.eclipse.org/legal/epl-v10.html
+- * and the Eclipse Distribution License is available at
+- *    http://www.eclipse.org/org/documents/edl-v10.html.
+- * 
+- * Contributors:
+- *    Matthias Kovatsch - creator and main architect
+- *    Martin Lanter - architect and re-implementation
+- *    Francesco Corazza - HTTP cross-proxy
+- ******************************************************************************/
+-package org.eclipse.californium.proxy;
+-
+-import org.eclipse.californium.core.network.Exchange;
+-
+-public interface ProxyCoapResolver {
+-
+-	public void forwardRequest(Exchange exchange);
+-	
+-}
+diff --git a/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyHttpServer.java b/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyHttpServer.java
+index 60a8b8e4..3b2740de 100755
+--- a/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyHttpServer.java
++++ b/californium-proxy/src/main/java/org/eclipse/californium/proxy/ProxyHttpServer.java
+@@ -23,13 +23,13 @@ import java.net.SocketException;
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+ 
+-import org.eclipse.californium.core.CoapServer;
+ import org.eclipse.californium.core.coap.CoAP.Type;
+ import org.eclipse.californium.core.coap.Request;
+ import org.eclipse.californium.core.coap.Response;
+ import org.eclipse.californium.core.network.Exchange;
+ import org.eclipse.californium.core.network.Exchange.Origin;
+ import org.eclipse.californium.core.network.config.NetworkConfig;
++import org.eclipse.californium.proxy.resources.ForwardingResource;
+ import org.eclipse.californium.proxy.resources.ProxyCacheResource;
+ import org.eclipse.californium.proxy.resources.StatsResource;
+ 
+@@ -46,17 +46,18 @@ public class ProxyHttpServer {
+ 	private final ProxyCacheResource cacheResource = new ProxyCacheResource(true);
+ 	private final StatsResource statsResource = new StatsResource(cacheResource);
+ 	
+-	private ProxyCoapResolver proxyCoapResolver;
+ 	private HttpStack httpStack;
+ 
++	private ForwardingResource coap2coap;
++
+ 	/**
+ 	 * Instantiates a new proxy endpoint from the default ports.
+ 	 * 
+ 	 * @throws SocketException
+ 	 *             the socket exception
+ 	 */
+-	public ProxyHttpServer(CoapServer server) throws IOException {
+-		this(NetworkConfig.getStandard().getInt(NetworkConfig.Keys.HTTP_PORT));
++	public ProxyHttpServer(ForwardingResource coap) throws IOException {
++		this(coap, NetworkConfig.getStandard().getInt(NetworkConfig.Keys.HTTP_PORT));
+ 	}
+ 
+ 	/**
+@@ -67,7 +68,7 @@ public class ProxyHttpServer {
+ 	 * @throws IOException
+ 	 *             the socket exception
+ 	 */
+-	public ProxyHttpServer(int httpPort) throws IOException {
++	public ProxyHttpServer(ForwardingResource coap, int httpPort) throws IOException {
+ 	
+ 		this.httpStack = new HttpStack(httpPort);
+ 		this.httpStack.setRequestHandler(new RequestHandler() {
+@@ -75,12 +76,11 @@ public class ProxyHttpServer {
+ 				ProxyHttpServer.this.handleRequest(request, context);
+ 			}
+ 		});
++		this.coap2coap = coap;
+ 	}
+ 
+ 	public void handleRequest(final Request request, final HttpRequestContext context) {
+ 		
+-		LOGGER.info("ProxyEndpoint handles request {}", request);
+-		
+ 		Exchange exchange = new Exchange(request, Origin.REMOTE, null) {
+ 
+ 			@Override
+@@ -128,7 +128,7 @@ public class ProxyHttpServer {
+ 		} else {
+ 			// HttpTranslator set Proxy-Uri from HTTP URI template
+ 			// handle the request as usual
+-			proxyCoapResolver.forwardRequest(exchange);
++			coap2coap.handleRequest(exchange);
+ 		}
+ 	}
+ 
+@@ -142,13 +142,4 @@ public class ProxyHttpServer {
+ 				LOGGER.info("Do not cache response");
+ 		}
+ 	}
+-
+-	public ProxyCoapResolver getProxyCoapResolver() {
+-		return proxyCoapResolver;
+-	}
+-
+-	public void setProxyCoapResolver(ProxyCoapResolver proxyCoapResolver) {
+-		this.proxyCoapResolver = proxyCoapResolver;
+-	}
+-	
+ }
+diff --git a/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ExampleCrossProxy.java b/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ExampleCrossProxy.java
+index abcb24a0..2e640f28 100755
+--- a/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ExampleCrossProxy.java
++++ b/demo-apps/cf-proxy/src/main/java/org/eclipse/californium/examples/ExampleCrossProxy.java
+@@ -22,7 +22,6 @@ import org.eclipse.californium.core.CoapServer;
+ import org.eclipse.californium.core.network.config.NetworkConfig;
+ import org.eclipse.californium.core.server.resources.CoapExchange;
+ 
+-import org.eclipse.californium.proxy.DirectProxyCoapResolver;
+ import org.eclipse.californium.proxy.ProxyHttpServer;
+ import org.eclipse.californium.proxy.resources.ForwardingResource;
+ import org.eclipse.californium.proxy.resources.ProxyCoapClientResource;
+@@ -59,8 +58,7 @@ public class ExampleCrossProxy {
+ 		coapProxy.add(new TargetResource("test"));
+ 		coapProxy.start();
+ 
+-		ProxyHttpServer httpServer = new ProxyHttpServer(HTTP_PORT);
+-		httpServer.setProxyCoapResolver(new DirectProxyCoapResolver(coap2coap));
++		ProxyHttpServer httpServer = new ProxyHttpServer(coap2coap, HTTP_PORT);
+ 		
+ 		System.out.println("CoAP resource \"test\" available over HTTP at: http://localhost:"+HTTP_PORT+"/proxy/coap://localhost:"+PORT+"/test");
+ 	}
+-- 
+2.17.1
+
