@@ -8,7 +8,7 @@ version: '3.2'
 
 services:
   httpd:
-    image: hub.foundries.io/shellhttpd:latest
+    image: hub.foundries.io/lmp/shellhttpd:latest
     ports:
       - 8080:${PORT}
     environment:
