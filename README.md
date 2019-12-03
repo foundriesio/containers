@@ -7,3 +7,6 @@ sanity checks of platform functionality.
 
 ## x-kiosk
 Runs the chromium browser inside a container and displays a website.
+
+## k3s
+Runs a minimal kubernetes installation using Rancher's k3s project.
