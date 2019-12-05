@@ -7,3 +7,8 @@ sanity checks of platform functionality.
 
 ## x-kiosk
 Runs the chromium browser inside a container and displays a website.
+
+## k3s
+Runs a minimal kubernetes installation using Rancher's k3s project. 
+
+*NOTE: you may wish to review [Rancher's k3s minimum hardware requirements](https://rancher.com/docs/k3s/latest/en/installation/node-requirements/#hardware) to ensure you your device has memory to spare*
