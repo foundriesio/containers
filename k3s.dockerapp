@@ -17,8 +17,7 @@ services:
     - K3S_URL=https://master:6443
     volumes:
     - k3s-server:/var/lib/rancher/k3s
-    ports:
-    - 6443:6443
+    network_mode: host
 volumes:
   k3s-server: {}
 ---
