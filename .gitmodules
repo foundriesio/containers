@@ -1,0 +1,3 @@
+[submodule "fiotest"]
+	path = fiotest
+	url = https://github.com/foundriesio/fiotest
