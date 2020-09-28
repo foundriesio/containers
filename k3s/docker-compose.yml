@@ -10,6 +10,6 @@ services:
     environment:
     - K3S_URL=https://master:6443
     volumes:
-    ./start.sh:/start.sh:ro
-    ./data:/var/lib/rancher/k3s
+    - ./start.sh:/start.sh:ro
+    - ./data:/var/lib/rancher/k3s
     network_mode: host
