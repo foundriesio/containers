@@ -1,0 +1,15 @@
+version: '3.2'
+services:
+  master:
+    image: rancher/k3s:v0.9.1
+    tmpfs:
+    - /run
+    - /var/run
+    privileged: true
+    command: /start.sh
+    environment:
+    - K3S_URL=https://master:6443
+    volumes:
+    ./start.sh:/start.sh:ro
+    ./data:/var/lib/rancher/k3s
+    network_mode: host
