@@ -1,9 +1,3 @@
-version: 0.1.0
-name: x-kiosk
-description: Kiosk web browser
-
----
-
 version: '3.2'
 
 services:
@@ -12,8 +6,7 @@ services:
     restart: always
     privileged: true
     tty: true
-    command: "--kiosk ${ADDR}"
-
----
-
-ADDR: foundries.io
+    command: "--kiosk ${ADDR-foundries.io}"
+    volumes:
+      ./start.sh:/start.sh:ro
+      ./xorg.conf:/etc/X11/xorg.conf:ro
