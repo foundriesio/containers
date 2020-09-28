@@ -1,9 +1,3 @@
-version: 0.1.0
-name: ot
-description: OpenThread gateway services
-
----
-
 version: '3.2'
 
 networks:
@@ -66,5 +60,3 @@ services:
     networks:
       - gateway-network
     restart: always
-
----
