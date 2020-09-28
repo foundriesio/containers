@@ -8,5 +8,5 @@ services:
     tty: true
     command: "--kiosk ${ADDR-foundries.io}"
     volumes:
-      ./start.sh:/start.sh:ro
-      ./xorg.conf:/etc/X11/xorg.conf:ro
+    - ./start.sh:/start.sh:ro
+    - ./xorg.conf:/etc/X11/xorg.conf:ro
