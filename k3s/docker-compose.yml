@@ -6,7 +6,7 @@ services:
     - /run
     - /var/run
     privileged: true
-    command: /start.sh
+    entrypoint: /start.sh
     environment:
     - K3S_URL=https://master:6443
     volumes:

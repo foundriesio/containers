@@ -1,11 +1,11 @@
 #!/bin/sh
 
-secret=/var/lib/rancher/k3s/.cluster-secretj
+secret=/var/lib/rancher/k3s/.cluster-secret
 if [ ! -f $secret ] ; then
 	echo Generating random cluster secret
-	openssl rand -base64 16 > $secret
+	cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1 > $secret
 fi
 
 export K3S_CLUSTER_SECRET=$(cat $secret)
 
-exec server --no-deploy traefik
+exec k3s server --no-deploy traefik
