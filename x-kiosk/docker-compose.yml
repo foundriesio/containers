@@ -1,7 +1,7 @@
 version: '3.2'
 
 services:
-  x-kiosk:
+  xkiosk:
     image: hub.foundries.io/lmp/x-kiosk:latest
     restart: always
     privileged: true
