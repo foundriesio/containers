@@ -1,15 +1,15 @@
 version: '3.2'
 services:
   master:
-    image: rancher/k3s:v0.9.1
+    image: rancher/k3s:v1.20.0-k3s2
     tmpfs:
     - /run
     - /var/run
     privileged: true
     entrypoint: /start.sh
     environment:
-    - K3S_URL=https://master:6443
+    - K3S_KUBECONFIG_OUTPUT=/var/lib/rancher/k3s/kubeconfig.yaml
     volumes:
     - ./start.sh:/start.sh:ro
-    - ./data:/var/lib/rancher/k3s
+    - ${K3S_DATA-./data}:/var/lib/rancher/k3s
     network_mode: host
