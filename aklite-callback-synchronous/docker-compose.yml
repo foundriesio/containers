@@ -1,0 +1,16 @@
+#
+# Copyright (C) 2021 Foundries.IO
+#
+# SPDX-License-Identifier: MIT
+#
+version: "3.5"
+
+services:
+  aklite-callback:
+    image: hub.foundries.io/lmp/aklite-callback-synchronous:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${SOTA_CONFD-/etc/sota/conf.d}:/etc/sota/conf.d
+      - ${SOTA_DIR-/var/sota}:/var/sota
