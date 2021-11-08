@@ -1,12 +1,17 @@
-version: '3.2'
+version: '3.6'
 
 services:
   xkiosk:
     image: hub.foundries.io/lmp/x-kiosk:latest
     restart: always
-    privileged: true
     tty: true
-    command: "--kiosk ${ADDR-foundries.io}"
+    command: "${ADDR-www.foundries.io}"
+    read_only: true
+    user: "63"
+    tmpfs:
+    - /run
+    - /var/lock
+    - /var/log
+    - /tmp
     volumes:
-    - ./start.sh:/start.sh:ro
-    - ./xorg.conf:/etc/X11/xorg.conf:ro
+    - /tmp/.X11-unix:/tmp/.X11-unix
