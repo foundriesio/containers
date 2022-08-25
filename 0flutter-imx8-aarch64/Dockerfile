@@ -49,4 +49,7 @@ RUN apt-get update -y && \
     rm -rf /var/lib/apt/lists/* && \
     bash /root/build-flutter.sh
 
+COPY build-flutter_app.sh /root/
+RUN bash /root/build-flutter_app.sh
+
 CMD ["/bin/bash"]
