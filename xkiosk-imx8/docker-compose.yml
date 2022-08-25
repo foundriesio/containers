@@ -1,8 +1,8 @@
 version: '3.6'
 
 services:
-  x-kiosk-imx8:
-    image: hub.foundries.io/lmp/x-kiosk-imx8:latest
+  xkiosk-imx8:
+    image: hub.foundries.io/lmp/xkiosk-imx8:latest
     restart: always
     tty: true
     command: "${ADDR-www.foundries.io}"

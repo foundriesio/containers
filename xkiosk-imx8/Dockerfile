@@ -14,11 +14,11 @@
 #
 
 # For testing in the LmP
-# docker build --tag hub.foundries.io/lmp/x-kiosk-imx8:latest .
-# docker run -it --rm --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' -v /run/user/63:/run/user/63 -v /dev/dri:/dev/dri -v /dev/galcore:/dev/galcore --entrypoint /bin/bash hub.foundries.io/lmp/x-kiosk-imx8:latest
+# docker build --tag hub.foundries.io/lmp/xkiosk-imx8:latest .
+# docker run -it --rm --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' -v /run/user/63:/run/user/63 -v /dev/dri:/dev/dri -v /dev/galcore:/dev/galcore --entrypoint /bin/bash hub.foundries.io/lmp/xkiosk-imx8:latest
 # /start.sh
 # or
-# docker run -it --rm --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' -v /run/user/63:/run/user/63 -v /dev/dri:/dev/dri -v /dev/galcore:/dev/galcore hub.foundries.io/lmp/x-kiosk-imx8:latest
+# docker run -it --rm --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw' -v /run/user/63:/run/user/63 -v /dev/dri:/dev/dri -v /dev/galcore:/dev/galcore hub.foundries.io/lmp/xkiosk-imx8:latest
 FROM hub.foundries.io/lmp/0chromium-imx8-aarch64 AS build
 
 FROM hub.foundries.io/lmp/0debian-base-imx8-aarch64
