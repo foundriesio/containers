@@ -10,7 +10,7 @@ from awscrt import io
 from awsiot import mqtt_connection_builder
 
 PIN = os.environ.get("PKCS11_PIN", "87654321")
-LIB = os.environ.get("PKCS11_LIB", "/usr/lib/libckteec.so.0.1")
+LIB = os.environ.get("PKCS11_LIB", "/usr/lib/libckteec.so.0")
 TOPIC = os.environ.get("TOPIC", "se050/demo")
 
 # The slot 5 and pkey label are set by:
