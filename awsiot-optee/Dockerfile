@@ -35,6 +35,9 @@ RUN pip3 install awsiotsdk==1.11.3
 FROM alpine:3.15
 RUN apk --no-cache add opensc openssl python3
 ADD ["https://www.websecurity.digicert.com/content/dam/websitesecurity/digitalassets/desktop/pdfs/roots/VeriSign-Class 3-Public-Primary-Certification-Authority-G5.pem", "/etc/aws-ca.pem"]
+ADD ["https://www.amazontrust.com/repository/AmazonRootCA3.pem", "https://www.amazontrust.com/repository/G2-RootCA3.pem", "https://www.amazontrust.com/repository/SFSRootCAG2.pem", "/etc/"]
+RUN cat /etc/AmazonRootCA3.pem /etc/G2-RootCA3.pem /etc/SFSRootCAG2.pem > /etc/aws-ca.chained
+
 COPY --from=p11 /src/optee_client/out/libteec/libteec.so* /usr/lib/
 COPY --from=p11 /src/optee_client/out/libseteec/libseteec.so* /usr/lib/
 COPY --from=p11 /src/optee_client/out/libckteec/libckteec.so* /usr/lib/
