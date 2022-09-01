@@ -12,6 +12,7 @@ from awsiot import mqtt_connection_builder
 PIN = os.environ.get("PKCS11_PIN", "87654321")
 LIB = os.environ.get("PKCS11_LIB", "/usr/lib/libckteec.so.0")
 TOPIC = os.environ.get("TOPIC", "se050/demo")
+AWS_CA =  os.environ.get("AWS_CA", "/etc/aws-ca.chained")
 
 # The slot 5 and pkey label are set by:
 # https://github.com/foundriesio/meta-lmp/pull/750/
@@ -49,6 +50,7 @@ def build_pkcs11_mqtt_connection(on_interrupted, on_resumed):
         client_id=str(uuid4()),
         clean_session=False,
         keep_alive_secs=30,
+        ca_filepath=AWS_CA,
     )
     return mqtt_connection
 
