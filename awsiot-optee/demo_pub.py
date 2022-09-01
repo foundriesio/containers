@@ -12,6 +12,7 @@ from awsiot import mqtt_connection_builder
 PIN = os.environ.get("PKCS11_PIN", "87654321")
 LIB = os.environ.get("PKCS11_LIB", "/usr/lib/libckteec.so.0")
 TOPIC = os.environ.get("TOPIC", "se050/demo")
+AWS_CA =  os.environ.get("AWS_CA", "/etc/aws-ca.chained")
 
 # The slot 5 and pkey label are set by:
 # https://github.com/foundriesio/meta-lmp/pull/750/
@@ -22,10 +23,14 @@ ENDPOINT = os.environ["AWS_ENDPOINT"]
 
 
 def load_cert() -> bytes:
-    der = subprocess.check_output(
-        ["pkcs11-tool", f"--module={LIB}", "--read-object", "--type=cert", f"--id={CERT_SLOT}"]
+    p = subprocess.run(
+        ["pkcs11-tool", f"--module={LIB}", "--read-object", "--type=cert", f"--id={CERT_SLOT}"],
+        capture_output=True
     )
-    pem = subprocess.check_output(["openssl", "x509", "-inform", "der"], input=der)
+    if p.returncode:
+        pem = open("/var/sota/client.chained", "rb").read()
+    else:
+        pem = subprocess.check_output(["openssl", "x509", "-inform", "der"], input=p.stdout)
     return pem
 
 
@@ -49,6 +54,7 @@ def build_pkcs11_mqtt_connection(on_interrupted, on_resumed):
         client_id=str(uuid4()),
         clean_session=False,
         keep_alive_secs=30,
+        ca_filepath=AWS_CA,
     )
     return mqtt_connection
 
