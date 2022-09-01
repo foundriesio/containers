@@ -23,10 +23,14 @@ ENDPOINT = os.environ["AWS_ENDPOINT"]
 
 
 def load_cert() -> bytes:
-    der = subprocess.check_output(
-        ["pkcs11-tool", f"--module={LIB}", "--read-object", "--type=cert", f"--id={CERT_SLOT}"]
+    p = subprocess.run(
+        ["pkcs11-tool", f"--module={LIB}", "--read-object", "--type=cert", f"--id={CERT_SLOT}"],
+        capture_output=True
     )
-    pem = subprocess.check_output(["openssl", "x509", "-inform", "der"], input=der)
+    if p.returncode:
+        pem = open("/var/sota/client.chained", "rb").read()
+    else:
+        pem = subprocess.check_output(["openssl", "x509", "-inform", "der"], input=p.stdout)
     return pem
 
 
