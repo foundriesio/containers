@@ -1,0 +1,10 @@
+version: '3.6'
+
+services:
+  fiovb-container:
+    image: hub.foundries.io/lmp/fiovb-container:latest
+    restart: unless-stopped
+    privileged: false
+    read_only: true
+    devices:
+      - /dev/tee0:/dev/tee0
