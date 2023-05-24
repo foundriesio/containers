@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import argparse
 from tempfile import TemporaryDirectory
 from time import sleep
 
@@ -31,14 +32,19 @@ IOT_POLICY = {
 }
 
 
-def create_iot_role(name: str) -> str:
-    print("= Creating IOT Role", name)
-    out = subprocess.check_output([
-        "aws", "iam", "create-role",
-        "--role-name", name,
-        "--assume-role-policy-document",
-        '{"Version": "2012-10-17","Statement": [{ "Effect": "Allow", "Principal": {"Service": "iot.amazonaws.com"}, "Action": "sts:AssumeRole"}]}',
-    ])
+def setup_iot_role(name: str, role_exists: bool) -> str:
+    if role_exists:
+        print("= Using pre-existing IOT Role", name)
+        out = subprocess.check_output(["aws", "iam", "get-role", "--role-name", name])
+    else:
+        print("= Creating IOT Role", name)
+        out = subprocess.check_output([
+            "aws", "iam", "create-role",
+            "--role-name", name,
+            "--assume-role-policy-document",
+            '{"Version": "2012-10-17","Statement": [{ "Effect": "Allow", "Principal": {"Service": "iot.amazonaws.com"}, "Action": "sts:AssumeRole"}]}',
+        ])
+
     data = json.loads(out.decode())
     arn = data["Role"]["Arn"]
 
@@ -152,8 +158,15 @@ CN = {code}"""
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--role-exists",
+        help="Use this to specify that the IOT role is already created (default: %(default)s)",
+        action="store_true")
+    args = parser.parse_args()
+
     create_iot_policy(iot_policy_name)
-    role_arn = create_iot_role(iot_role_name)
+    role_arn = setup_iot_role(iot_role_name, args.role_exists)
     reg_conf = get_registration_config(role_arn, iot_policy_name)
 
     print("= Sleeping a few seconds for IAM to sync")
