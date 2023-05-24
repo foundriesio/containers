@@ -163,10 +163,16 @@ if __name__ == "__main__":
     parser.add_argument("--role-exists",
         help="Use this to specify that the IOT role is already created (default: %(default)s)",
         action="store_true")
+    parser.add_argument("--policy-exists",
+        help="Use this to specify that the IOT policy is already created (default: %(default)s)",
+        action="store_true")
     args = parser.parse_args()
 
-    create_iot_policy(iot_policy_name)
+    if not args.policy_exists:
+        create_iot_policy(iot_policy_name)
+
     role_arn = setup_iot_role(iot_role_name, args.role_exists)
+
     reg_conf = get_registration_config(role_arn, iot_policy_name)
 
     print("= Sleeping a few seconds for IAM to sync")
