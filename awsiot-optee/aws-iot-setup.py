@@ -156,6 +156,51 @@ CN = {code}"""
             f"--registration-config={reg_conf}",
         ])
 
+def get_el2g_registration_config(provision_role_arn: str, policy_name: str) -> str:
+    template_data = {
+        "Parameters": {
+            "AWS::IoT::Certificate::Id": {"Type": "String"},
+            "AWS::IoT::Certificate::CommonName": {"Type": "String"},
+            "AWS::IoT::Certificate::SerialNumber": {"Type": "String"},
+        },
+        "Resources": {
+            "thing": {
+                "Type": "AWS::IoT::Thing",
+                "Properties": {
+                    "ThingName": {"Ref": "AWS::IoT::Certificate::CommonName"},
+                    "AttributePayload": {
+                        "SerialNumber": {"Ref": "AWS::IoT::Certificate::SerialNumber"}
+                    },
+                },
+            },
+            "certificate": {
+                "Type": "AWS::IoT::Certificate",
+                "Properties": {
+                    "CertificateId": {"Ref": "AWS::IoT::Certificate::Id"},
+                    "Status": "ACTIVE",
+                },
+            },
+            "policy": {
+                "Type": "AWS::IoT::Policy",
+                "Properties": {"PolicyName": policy_name},
+            },
+        },
+    }
+    return json.dumps({
+        "templateBody": json.dumps(template_data),
+        "roleArn": provision_role_arn,
+    })
+
+def update_el2g_ca(ca_id: str, reg_conf: str):
+    print(f"= CA ID is {ca_id}")
+    print(f"= Attaching policy to CA")
+    subprocess.check_output([
+        "aws", "iot", "update-ca-certificate",
+        f"--certificate-id={ca_id}",
+        "--new-auto-registration-status",
+        "ENABLE",
+        f"--registration-config={reg_conf}",
+        ])
 
 if __name__ == "__main__":
 
@@ -172,6 +217,8 @@ if __name__ == "__main__":
         help="AWS IOT policy name (default: %(default)s)")
     parser.add_argument("-c", "--factory-ca", nargs=2, action="append",
         help="Pair of paths pointing to factory CA certificate and private key, in this order. May be specified multiple times.")
+    parser.add_argument("--update-el2g-ca",
+        help="Update the EL2GO generated AWS IOT CA created with \"fioctl el2g config-aws-iot\" configuration with required IOT role and policy")
     args = parser.parse_args()
 
     iot_role_name = args.role_name
@@ -187,13 +234,17 @@ if __name__ == "__main__":
 
     role_arn = setup_iot_role(iot_role_name, args.role_exists)
 
-    reg_conf = get_registration_config(role_arn, iot_policy_name)
-
     print("= Sleeping a few seconds for IAM to sync")
     sleep(4)
 
-    for cert, key in factory_cas:
-        register_ca(cert, key, reg_conf)
+    if args.update_el2g_ca:
+        reg_conf = get_el2g_registration_config(role_arn, iot_policy_name)
+        update_el2g_ca(args.update_el2g_ca, reg_conf)
+    else:
+        reg_conf = get_registration_config(role_arn, iot_policy_name)
+
+        for cert, key in factory_cas:
+            register_ca(cert, key, reg_conf)
 
     endpoint_verisign = get_endpoint("iot:Data")
     endpoint_ats = get_endpoint("iot:Data-ATS")
