@@ -9,9 +9,9 @@ from time import sleep
 
 
 # You must change the value(s) to match the location of your local PKI files
-factory_cas = (
+factory_cas = [
     ("<PATH_TO_PKI_DIR>/local-ca.pem", "<PATH_TO_PKI_DIR>/local-ca.key"),
-)
+]
 
 # You can change these
 iot_policy_name = "fio-blog"
@@ -170,10 +170,17 @@ if __name__ == "__main__":
         help="AWS IOT role name (default: %(default)s)")
     parser.add_argument("-p", "--policy-name", default=iot_policy_name,
         help="AWS IOT policy name (default: %(default)s)")
+    parser.add_argument("-c", "--factory-ca", nargs=2, action="append",
+        help="Pair of paths pointing to factory CA certificate and private key, in this order. May be specified multiple times.")
     args = parser.parse_args()
 
     iot_role_name = args.role_name
     iot_policy_name = args.policy_name
+
+    if args.factory_ca:
+        factory_cas = []
+        for entry in args.factory_ca:
+            factory_cas.append((entry[0], entry[1]))
 
     if not args.policy_exists:
         create_iot_policy(iot_policy_name)
