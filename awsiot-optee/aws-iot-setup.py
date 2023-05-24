@@ -166,7 +166,14 @@ if __name__ == "__main__":
     parser.add_argument("--policy-exists",
         help="Use this to specify that the IOT policy is already created (default: %(default)s)",
         action="store_true")
+    parser.add_argument("-r", "--role-name", default=iot_role_name,
+        help="AWS IOT role name (default: %(default)s)")
+    parser.add_argument("-p", "--policy-name", default=iot_policy_name,
+        help="AWS IOT policy name (default: %(default)s)")
     args = parser.parse_args()
+
+    iot_role_name = args.role_name
+    iot_policy_name = args.policy_name
 
     if not args.policy_exists:
         create_iot_policy(iot_policy_name)
