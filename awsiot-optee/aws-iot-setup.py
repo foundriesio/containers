@@ -65,8 +65,8 @@ def create_iot_policy(name: str):
     ])
 
 
-def get_endpoint() -> str:
-    out = subprocess.check_output(["aws", "iot", "describe-endpoint"])
+def get_endpoint(type: str) -> str:
+    out = subprocess.check_output(["aws", "iot", "describe-endpoint", "--endpoint-type", type])
     return json.loads(out.decode())["endpointAddress"]
 
 
@@ -181,5 +181,6 @@ if __name__ == "__main__":
     for cert, key in factory_cas:
         register_ca(cert, key, reg_conf)
 
-    endpoint = get_endpoint()
-    print(f"= Factory devices can connect to {endpoint} using mTLS!")
+    endpoint_verisign = get_endpoint("iot:Data")
+    endpoint_ats = get_endpoint("iot:Data-ATS")
+    print(f"= Factory devices can connect to endpoint VeriSign: {endpoint_verisign} or endpoint ATS: {endpoint_ats} using mTLS!")
