@@ -2,7 +2,7 @@
 import json
 import os
 import subprocess
-from time import time
+from time import time, sleep
 from uuid import uuid4
 
 from awscrt import mqtt
@@ -21,6 +21,7 @@ CERT_SLOT = os.environ.get("CERT_SLOT", "05")
 PKEY_LABEL = os.environ.get("PKEY_LABEL", "SE_83000044")
 
 ENDPOINT = os.environ["AWS_ENDPOINT"]
+pkcs11_lib = None
 
 
 def load_cert() -> bytes:
@@ -39,10 +40,12 @@ def build_pkcs11_mqtt_connection(on_interrupted, on_resumed):
     print("Loading client cert...")
     cert_bytes = load_cert()
 
-    print(f"Loading PKCS#11 library '{LIB}'...")
-    pkcs11_lib = io.Pkcs11Lib(
-        file=LIB, behavior=io.Pkcs11Lib.InitializeFinalizeBehavior.STRICT
-    )
+    global pkcs11_lib
+    if not pkcs11_lib:
+        print(f"Loading PKCS#11 library '{LIB}'...")
+        pkcs11_lib = io.Pkcs11Lib(
+            file=LIB, behavior=io.Pkcs11Lib.InitializeFinalizeBehavior.STRICT
+        )
 
     mqtt_connection = mqtt_connection_builder.mtls_with_pkcs11(
         pkcs11_lib=pkcs11_lib,
@@ -76,17 +79,31 @@ def on_connection_resumed(connection, return_code, session_present, **kwargs):
 
 
 if __name__ == "__main__":
-    mqtt_connection = build_pkcs11_mqtt_connection(
-        on_connection_interrupted, on_connection_resumed
-    )
-
     print(f"Connecting to {ENDPOINT}...")
 
-    connect_future = mqtt_connection.connect()
-
-    # Future.result() waits until a result is available
-    connect_future.result()
-    print("Connected!")
+    try:
+        mqtt_connection = build_pkcs11_mqtt_connection(
+            on_connection_interrupted, on_connection_resumed
+        )
+        connect_future = mqtt_connection.connect()
+        connect_future.result()
+        print("Connected!")
+    except awscrt.exceptions.AwsCrtError as e:
+        print(f"Error code: {e.code}")
+        print(f"Error name: {e.name}")
+        print(f"Error message: {e.message}")
+        if e.name == "AWS_ERROR_MQTT_UNEXPECTED_HANGUP":
+            # ignore error during 1st connection
+            # this is AWS issue. Wait for 5 sec to avoid HANGUP again
+            sleep(5)
+            mqtt_connection = build_pkcs11_mqtt_connection(
+                on_connection_interrupted, on_connection_resumed
+            )
+            connect_future = mqtt_connection.connect()
+            connect_future.result()
+            print("Connected!")
+        else:
+            raise e
 
     payload = json.dumps({"time": time()})
     mqtt_connection.publish(topic=TOPIC, payload=payload, qos=mqtt.QoS.AT_LEAST_ONCE)
