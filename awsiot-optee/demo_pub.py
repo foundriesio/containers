@@ -8,6 +8,7 @@ from uuid import uuid4
 from awscrt import mqtt
 from awscrt import io
 from awsiot import mqtt_connection_builder
+from awscrt.exceptions import AwsCrtError
 
 PIN = os.environ.get("PKCS11_PIN", "87654321")
 LIB = os.environ.get("PKCS11_LIB", "/usr/lib/libckteec.so.0")
@@ -88,7 +89,7 @@ if __name__ == "__main__":
         connect_future = mqtt_connection.connect()
         connect_future.result()
         print("Connected!")
-    except awscrt.exceptions.AwsCrtError as e:
+    except AwsCrtError as e:
         print(f"Error code: {e.code}")
         print(f"Error name: {e.name}")
         print(f"Error message: {e.message}")
