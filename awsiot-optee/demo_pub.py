@@ -13,7 +13,7 @@ PIN = os.environ.get("PKCS11_PIN", "87654321")
 LIB = os.environ.get("PKCS11_LIB", "/usr/lib/libckteec.so.0")
 TOPIC = os.environ.get("TOPIC", "se050/demo")
 AWS_CA =  os.environ.get("AWS_CA", "/etc/aws-ca.chained")
-SLOT_ID = os.environ.get("SLOT_ID", None)
+TOKEN_LABEL = os.environ.get("TOKEN_LABEL", "aktualizr")
 
 # The slot 5 and pkey label are set by:
 # https://github.com/foundriesio/meta-lmp/pull/750/
@@ -48,7 +48,7 @@ def build_pkcs11_mqtt_connection(on_interrupted, on_resumed):
         pkcs11_lib=pkcs11_lib,
         user_pin=PIN,
         private_key_label=PKEY_LABEL,
-        slot_id=None if SLOT_ID==None else int(SLOT_ID),
+        token_label=TOKEN_LABEL,
         cert_bytes=cert_bytes,
         endpoint=ENDPOINT,
         on_connection_interrupted=on_interrupted,
