@@ -14,8 +14,8 @@
 #
 
 # For testing in the LmP
-# docker build --tag hub.foundries.io/lmp/x-kiosk:latest .
-# docker run -it --user 63:63 --rm -v /tmp/.X11-unix:/tmp/.X11-unix hub.foundries.io/lmp/x-kiosk:latest www.foundries.io
+# docker build --tag hub.foundries.io/lmp/xkiosk:latest .
+# docker run -it --user 63:63 --rm -v /tmp/.X11-unix:/tmp/.X11-unix hub.foundries.io/lmp/xkiosk:latest www.foundries.io
 
 FROM debian:bullseye-20211011-slim
 
