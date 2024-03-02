@@ -3,7 +3,7 @@
 # Copyright (c) 2021 Foundries.io
 # All rights reserved.
 #
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: BSD-3-Clause
 
 import logging
 
