@@ -1,0 +1,38 @@
+import { mount } from 'enzyme';
+import React from 'react';
+
+import { Select, Switch } from '@grafana/ui';
+
+import { RichHistorySettings, RichHistorySettingsProps } from './RichHistorySettings';
+
+const setup = (propOverrides?: Partial<RichHistorySettingsProps>) => {
+  const props: RichHistorySettingsProps = {
+    retentionPeriod: 14,
+    starredTabAsFirstTab: true,
+    activeDatasourceOnly: false,
+    onChangeRetentionPeriod: jest.fn(),
+    toggleStarredTabAsFirstTab: jest.fn(),
+    toggleactiveDatasourceOnly: jest.fn(),
+    deleteRichHistory: jest.fn(),
+  };
+
+  Object.assign(props, propOverrides);
+
+  const wrapper = mount(<RichHistorySettings {...props} />);
+  return wrapper;
+};
+
+describe('RichHistorySettings', () => {
+  it('should render component with correct retention period', () => {
+    const wrapper = setup();
+    expect(wrapper.find(Select).text()).toEqual('2 weeks');
+  });
+  it('should render component with correctly checked starredTabAsFirstTab settings', () => {
+    const wrapper = setup();
+    expect(wrapper.find(Switch).at(0).prop('value')).toBe(true);
+  });
+  it('should render component with correctly not checked toggleactiveDatasourceOnly settings', () => {
+    const wrapper = setup();
+    expect(wrapper.find(Switch).at(1).prop('value')).toBe(false);
+  });
+});

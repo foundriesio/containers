@@ -1,0 +1,36 @@
+# /gin/docker-compose.yml
+version: "3"
+services:
+  influxdb:
+    image: influxdb:1.8
+    volumes:
+      - /var/lib/influxdb:/var/lib/influxdb
+    environment:
+      INFLUXDB_DB: mydb
+    restart: always
+    ports:
+      - "8086:8086"
+    privileged: true
+  nodered:
+    image: hub.foundries.io/lmp/nodered_app:latest
+    volumes:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    depends_on:
+      - influxdb
+    ports:
+      - "1880:1880"
+    restart: always
+    privileged: true
+    user: root:root
+  grafana:
+    image: hub.foundries.io/lmp/grafana:latest
+    depends_on:
+      - influxdb
+    ports:
+      - "3000:3000"
+    restart: always
+    depends_on:
+      - influxdb
+    restart: always
+    privileged: true
+    user: root:root
