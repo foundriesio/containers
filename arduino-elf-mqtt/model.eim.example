@@ -1,0 +1,190 @@
+# Edge Impulse Model Required
+
+This project requires an Edge Impulse model file named `model.eim`.
+
+## How to Create Your Own Model
+
+### 1. Create an Edge Impulse Account
+
+Go to https://edgeimpulse.com/ and create a free account.
+
+### 2. Create Impulse
+
+Configure your impulse with these settings:
+
+**Image Data:**
+- **Image width**: 224
+- **Image height**: 224
+- **Resize mode**: Fit shortest axis
+
+**Processing Block:**
+- **Name**: Image
+- **Input**: Image
+
+**Learning Block:**
+- **Model**: YOLOv5
+- **Output**: Your object classes (e.g., "elf", "person")
+
+Click **Save Impulse**.
+
+### 3. Collect and Label Image Samples
+
+Upload or capture images with objects to detect (e.g., "elf", "person").
+
+**Labeling Requirements:**
+- Draw bounding boxes around each object in your images
+- Label each box with the correct class name
+- Aim for at least 50+ images per class for good accuracy
+- Include various angles, lighting conditions, and distances
+
+### 4. Configure Image Processing Block
+
+Navigate to **Image** in the left sidebar.
+
+**Parameters:**
+- **Color depth**: RGB
+
+Click **Save parameters**, then **Generate features**.
+
+### 5. Configure and Train YOLOv5 Model
+
+Navigate to **Object Detection (YOLOv5)** in the left sidebar.
+
+**Training Configuration:**
+
+```yaml
+Training:
+  Training processor: GPU
+  Number of training cycles: 100
+  Learning rate: 0.001
+  Model size: Pico
+  Use pretrained weights: ✓ Enabled
+  Batch size: 16
+
+Advanced Settings:
+  Validation set size: 20%
+  Profile int8 model: ✓ Enabled
+  Architecture type: No attention with ReLU
+  Spatial Augmentation: Low
+  Color space Augmentation: Low
+  Early stopping start epoch: 10
+```
+
+**Detailed Parameter Explanations:**
+
+- **Training processor**: GPU (required for YOLOv5, significantly faster than CPU)
+- **Training cycles**: 100 epochs (balance between training time and accuracy)
+- **Learning rate**: 0.001 (standard for YOLOv5 fine-tuning with pretrained weights)
+- **Model size**: Pico (smallest variant, 682KB, ideal for edge devices)
+- **Pretrained weights**: Uses transfer learning from COCO dataset (80 common objects)
+- **Validation split**: 20% of data reserved for validation during training
+- **INT8 profiling**: Enables quantization analysis (optional for deployment)
+- **Architecture**: No attention with ReLU (optimized for speed)
+- **Spatial augmentation**: Low (prevents overfitting on small datasets)
+- **Color augmentation**: Low (maintains color consistency)
+- **Early stopping**: Stops training at epoch 10 if validation accuracy plateaus
+
+Click **Start training** and wait for completion (~15-30 minutes).
+
+**Expected Results:**
+- **Mean Average Precision (mAP)**: >70% for good detection
+- **Inference time**: ~58ms on AARCH64 (float32)
+- **Model size**: 682KB (YOLOv5 Pico)
+
+### 6. Test Model Performance
+
+Navigate to **Model testing** in the left sidebar.
+
+Click **Classify all** to test against your test set.
+
+**Review metrics:**
+- Overall mAP should be >70%
+- Check per-class precision and recall
+- Visually inspect test images for detection quality
+
+### 7. Deploy to Arduino Uno Q
+
+Navigate to **Deployment** in the left sidebar.
+
+**Deployment Configuration:**
+
+```yaml
+Target: Linux (AARCH64)
+Optimization: Unoptimized (float32)
+```
+
+**Important Notes:**
+- Use **AARCH64** (ARM64 architecture) for Arduino Uno Q
+- Choose **Unoptimized (float32)** for best accuracy
+  - YOLOv5 Pico is already very small (682KB)
+  - Float32 provides better detection accuracy
+  - ~58ms inference time is acceptable for real-time use
+  - INT8 quantization available if speed is critical
+
+**Build Options:**
+- Enable EON Compiler: ✓ Recommended
+- Model format: `.eim` (Edge Impulse Model)
+
+Click **Build** and wait (~2-3 minutes).
+
+### 8. Download and Place the Model
+
+**Download:**
+- File will be named: `<project-name>-linux-aarch64-v<version>.eim`
+- Size: ~50-70MB
+- Rename it to: `model.eim`
+
+**Place the Model:**
+
+Copy to the `arduino-elf-webui` directory:
+
+```bash
+cp /path/to/your/model.eim arduino-elf-webui/
+```
+
+**Deployment Options:**
+
+**Option A: Volume Mount (Recommended)**
+```bash
+# Copy model to device
+scp model.eim arduino@<device-ip>:/var/local/assets/
+
+# The docker-compose.yml mounts /var/local/assets automatically
+# The start.sh script checks this location first
+```
+
+**Option B: Include in Container**
+```bash
+# Place model in arduino-elf-webui/ directory before building
+# Model will be bundled in Docker image (increases image size)
+```
+
+## Model Requirements
+
+- **Type**: Object detection (YOLOv5)
+- **Architecture**: YOLOv5 Pico (682KB)
+- **Format**: `.eim` (Edge Impulse Model)
+- **Target**: Linux AARCH64 (ARM64)
+- **Input size**: 224×224 RGB
+- **Optimization**: Unoptimized (float32)
+- **Performance**: ~58ms inference (~17 FPS)
+- **Expected filename**: `model.eim`
+
+## Performance Expectations
+
+**On Arduino Uno Q (ARM Cortex-A53):**
+- Inference time: ~58ms per frame
+- Frame rate: ~17 FPS
+- Model size: 682KB
+- Memory usage: ~300MB (Docker container)
+- CPU usage: 60-80% during inference
+
+## Build Instructions
+
+After placing your `model.eim` file:
+
+```bash
+docker build -t arduino-elf-webui .
+```
+
+For more information, see the main README.md

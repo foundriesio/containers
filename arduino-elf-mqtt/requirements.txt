@@ -1,0 +1,16 @@
+# Flask Web Server
+flask>=3.0.0
+
+# Image Processing
+Pillow>=10.0.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Edge Impulse SDK for object detection
+edge-impulse-linux>=1.0.0
+six>=1.17.0
+
+# Additional dependencies for Edge Impulse
+sounddevice>=0.4.6
+pyaudio>=0.2.13
+cbor>=1.0.0
