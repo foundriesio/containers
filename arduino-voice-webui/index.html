@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Voice Control - Christmas Tree</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        :root{
+            --bg1:#071226; --bg2:#0b1a2b;
+            --panel:#0b1220;
+            --text:#e6eef8; --muted:#9fb0c8;
+            --accent:#020b3f;
+            --accent-rgb:2,11,63;
+            --glow: rgba(var(--accent-rgb), .28);
+            --tile-shadow:0 10px 28px rgba(0,0,0,.45);
+            --gap:16px;
+        }
+        html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1) 0%, var(--bg2) 100%);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+        .container{max-width:1100px;margin:30px auto;padding:20px}
+
+        /* Status / Mic */
+        .status-wrap{display:flex;flex-direction:column;align-items:center;text-align:center;margin:10px 0 26px}
+        .cta{display:inline-flex;align-items:center;gap:12px;padding:12px 18px;border-radius:999px;background:rgba(var(--accent-rgb),0.04);box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),0.06)}
+        .mic{position:relative;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(var(--accent-rgb),0.08);box-shadow:0 0 0 0 rgba(var(--accent-rgb),0);transition:box-shadow .25s ease, transform .25s ease}
+        .mic svg{width:24px;height:24px;opacity:.95;color:var(--accent)}
+        .pulse::before,.pulse::after{content:"";position:absolute;inset:0;border-radius:50%;animation:pulse 2.2s ease-out infinite;box-shadow:0 0 0 0 rgba(var(--accent-rgb),.28)}
+        .pulse::after{animation-delay:.9s}
+        @keyframes pulse{0%{transform:scale(1);opacity:.75}80%,100%{transform:scale(1.8);opacity:0}}
+
+        .status{font-size:52px;font-weight:800;line-height:1.05;margin:14px 0 6px;letter-spacing:.2px;color:var(--text)}
+        .sub{color:var(--accent);font-size:18px;min-height:26px}
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.25);
+            margin-left: 12px;
+            vertical-align: middle;
+        }
+        .wave {
+            display: flex;
+            gap: 4px;
+            height: 28px;
+            align-items: center;
+        }
+        .bar {
+            width: 4px;
+            height: 100%;
+            background: #7cc7ff;
+            border-radius: 2px;
+            opacity: 0.95;
+            animation: bars 1.2s ease-in-out infinite;
+        }
+        @keyframes bars {
+            0% { transform: scaleY(0.3); background:#7cc7ff; }
+            50% { transform: scaleY(1); background:#ffffff; }
+            100% { transform: scaleY(0.3); background:#7cc7ff; }
+        }
+
+        /* Christmas Tree Display */
+        .tree-wrap{display:flex;justify-content:center;align-items:center;position:relative;min-height:500px;padding:20px}
+        .aura{position:absolute;inset:-80px;z-index:0;filter:blur(60px);opacity:.22;pointer-events:none;transition:background .35s ease, opacity .35s ease;background:radial-gradient(600px 300px at 50% 40%, transparent 0%, transparent 50%)}
+        .tree-container{position:relative;z-index:1;display:flex;justify-content:center;align-items:center}
+        .tree-image{max-width:100%;max-height:500px;width:auto;height:auto;object-fit:contain;transition:filter .4s ease, opacity .3s ease;filter:drop-shadow(0 20px 40px rgba(0,0,0,.4))}
+        .tree-image.active{filter:drop-shadow(0 30px 60px rgba(0,0,0,.6)) saturate(1.2) brightness(1.1)}
+        .tips{margin-top:10px;text-align:center;font-size:18px;color:var(--text);opacity:.95}
+
+        /* Bottom white footer bar */
+        .header-bottom{background:#ffffff;border-radius:12px;padding:14px 18px;margin-top:18px;box-shadow:0 10px 30px rgba(2,6,23,0.45);color:var(--accent);display:flex;justify-content:center;align-items:center;flex-direction:column}
+        .header-bottom .tips{margin:0;font-weight:600;color:#020b3f;font-size:20px}
+
+        /* Responsive */
+        @media (max-width:920px){.status{font-size:44px}.tree-image{max-height:400px}}
+    </style>
+</head>
+<body>
+  <div class="container">
+    <div class="status-wrap" role="status" aria-live="polite">
+      <div class="cta">
+        <div id="mic" class="mic" title="Say Select">
+          <!-- mic icon -->
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 14 0h-2Zm-5 7a7.002 7.002 0 0 1-6.32-4H4a9 9 0 0 0 8 5v3h2v-3a9 9 0 0 0 8-5h-1.68A7.002 7.002 0 0 1 12 18Z"/></svg>
+        </div>
+        <div>
+          <div id="status" class="status">
+            <span id="chipLeft" class="chip" style="display:none;margin-right:12px;margin-left:0">
+                <div class="wave" aria-hidden="true">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+            </span>
+
+            <!-- status text moved into its own span so we don't overwrite chips -->
+            <span id="statusText">Say <em>Select</em> to start</span>
+
+            <span id="chip" class="chip" style="display:none">
+                <div class="wave" aria-hidden="true">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tree-wrap">
+      <div id="aura" class="aura"></div>
+      <div class="tree-container">
+        <img id="treeImage" class="tree-image" src="off.png" alt="Christmas Tree" />
+      </div>
+    </div>
+
+    <div class="header-bottom">
+      <div class="tips" id="tips">Tip: Say "Select", then a color.</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const statusEl        = document.getElementById('status');
+      const statusTextEl    = document.getElementById('statusText');
+      const chipEl          = document.getElementById('chip');
+      const chipLeftEl      = document.getElementById('chipLeft');
+      const micEl           = document.getElementById('mic');
+      const auraEl          = document.getElementById('aura');
+      const tipsEl          = document.getElementById('tips');
+      const treeImage       = document.getElementById('treeImage');
+
+      const COLORS = {
+        blue:'#1e90ff', green:'#2dd4bf', purple:'#9b7bff',
+        red:'#ff5c6c', yellow:'#ffd166'
+      };
+
+      // Preload all tree images to prevent loading delays when switching
+      const imageCache = {};
+      const imagesToPreload = ['off.png', 'blue.png', 'green.png', 'purple.png', 'red.png', 'yellow.png'];
+      imagesToPreload.forEach(src => {
+        const img = new Image();
+        img.src = src;
+        imageCache[src] = img;
+      });
+
+      function setListeningUI(isListening){
+        chipEl.style.display = isListening ? 'inline-flex' : 'none';
+        chipLeftEl.style.display = isListening ? 'inline-flex' : 'none';
+        micEl.classList.toggle('pulse', isListening);
+        micEl.style.transform = isListening ? 'scale(1.06)' : 'scale(1)';
+      }
+
+      function clearTree(){
+        treeImage.src = 'off.png';
+        treeImage.classList.remove('active');
+        auraEl.style.background = 'radial-gradient(600px 300px at 50% 40%, transparent 0%, transparent 50%)';
+        auraEl.style.opacity = '.22';
+      }
+
+      function highlightColor(color){
+        if(!color) {
+          clearTree();
+          return;
+        }
+        
+        // Update tree image based on color
+        treeImage.src = `${color}.png`;
+        treeImage.classList.add('active');
+        
+        // Update aura glow
+        const c = COLORS[color] || '#7cc7ff';
+        auraEl.style.background = `radial-gradient(520px 280px at 50% 40%, ${c}33 0%, transparent 55%)`;
+        auraEl.style.opacity = '.35';
+        setTimeout(()=> auraEl.style.opacity = '.28', 600);
+      }
+
+      // Idle tips rotation
+      const idleTips = [
+        'Try "Select", then "Blue".',
+        'Say any color to light up the tree.',
+        'Works hands-free. Give it a try!',
+        'Say "Select" to begin.'
+      ];
+      let tipIdx = 0;
+      setInterval(()=>{ tipIdx=(tipIdx+1)%idleTips.length; tipsEl.textContent = idleTips[tipIdx]; }, 4200);
+
+      function reflectStatus(s){
+        if(!s) return;
+        statusTextEl.textContent = s;
+        const lower = s.toLowerCase();
+        const listening = lower.includes('select the color') || lower.includes('say a color') || lower.includes('listening');
+        setListeningUI(listening);
+      }
+
+      // Server-Sent Events
+      const es = new EventSource('/stream');
+      es.onmessage = (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          reflectStatus(data.status || '');
+
+          if (data.color === "") { clearTree(); return; }
+          if (data.color) { highlightColor(data.color); }
+        } catch(e){ /* ignore parse errors */ }
+      };
+      es.onerror = () => { /* optionally show disconnected */ };
+    })();
+  </script>
+</body>
+</html>
