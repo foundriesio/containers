@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Arduino LED Matrix Controller</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        :root{
+            --bg1:#071226; 
+            --bg2:#0b1a2b;
+            --panel:#0b1220;
+            --text:#e6eef8; 
+            --muted:#9fb0c8;
+            --accent:#020b3f;
+            --accent-rgb:2,11,63;
+            --glow: rgba(var(--accent-rgb), .28);
+            --led-off: #1a1a2e;
+            --led-on: #00ff88;
+            --led-hover: #2a2a3e;
+        }
+        
+        html,body{
+            height:100%;
+            margin:0;
+            background:linear-gradient(180deg,var(--bg1) 0%, var(--bg2) 100%);
+            color:var(--text);
+            font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+            overflow-x: hidden;
+        }
+        
+        .container{
+            max-width:1400px;
+            margin:20px auto;
+            padding:20px;
+        }
+
+        /* Header */
+        .header-top{
+            background:#ffffff;
+            border-radius:12px;
+            padding:18px;
+            margin-bottom:24px;
+            box-shadow:0 10px 30px rgba(2,6,23,0.45);
+            text-align:center;
+        }
+        
+        .header-top h1{
+            margin:0;
+            color:#020b3f;
+            font-size:32px;
+            font-weight:800;
+        }
+        
+        .header-top p{
+            margin:8px 0 0 0;
+            color:#4a5568;
+            font-size:16px;
+        }
+
+        /* Status */
+        .status-wrap{
+            text-align:center;
+            margin:20px 0;
+        }
+        
+        .status{
+            font-size:20px;
+            font-weight:600;
+            color:var(--text);
+            padding:12px 24px;
+            background:rgba(255,255,255,0.05);
+            border-radius:8px;
+            display:inline-block;
+        }
+
+        /* Matrix Container */
+        .matrix-container{
+            background:rgba(255,255,255,0.03);
+            border-radius:16px;
+            padding:30px;
+            box-shadow:0 8px 24px rgba(0,0,0,0.3);
+            margin:20px auto;
+            max-width:fit-content;
+        }
+        
+        .matrix-title{
+            text-align:center;
+            margin:0 0 20px 0;
+            color:var(--text);
+            font-size:24px;
+            font-weight:700;
+        }
+
+        /* LED Grid */
+        .led-grid{
+            display:grid;
+            grid-template-columns:repeat(13, 1fr);
+            gap:4px;
+            background:rgba(0,0,0,0.3);
+            padding:8px;
+            border-radius:8px;
+            width:fit-content;
+            margin:0 auto;
+        }
+        
+        .led{
+            width:32px;
+            height:32px;
+            background:var(--led-off);
+            border:2px solid rgba(255,255,255,0.1);
+            border-radius:4px;
+            cursor:pointer;
+            transition:all 0.15s ease;
+            position:relative;
+        }
+        
+        .led:hover{
+            background:var(--led-hover);
+            border-color:rgba(255,255,255,0.3);
+            transform:scale(1.1);
+        }
+        
+        .led.active{
+            background:var(--led-on);
+            border-color:var(--led-on);
+            box-shadow:0 0 12px var(--led-on), 0 0 24px rgba(0,255,136,0.4);
+        }
+        
+        .led.active:hover{
+            transform:scale(1.15);
+        }
+
+        /* Coordinates tooltip */
+        .led::after{
+            content:attr(data-coords);
+            position:absolute;
+            bottom:100%;
+            left:50%;
+            transform:translateX(-50%);
+            background:rgba(0,0,0,0.9);
+            color:#fff;
+            padding:4px 8px;
+            border-radius:4px;
+            font-size:11px;
+            white-space:nowrap;
+            opacity:0;
+            pointer-events:none;
+            transition:opacity 0.2s;
+            margin-bottom:4px;
+        }
+        
+        .led:hover::after{
+            opacity:1;
+        }
+
+        /* Control Buttons */
+        .controls{
+            display:flex;
+            justify-content:center;
+            gap:16px;
+            margin:24px 0;
+            flex-wrap:wrap;
+        }
+        
+        .btn{
+            padding:12px 24px;
+            border:none;
+            border-radius:8px;
+            font-size:16px;
+            font-weight:600;
+            cursor:pointer;
+            transition:all 0.2s ease;
+            box-shadow:0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .btn:hover{
+            transform:translateY(-2px);
+            box-shadow:0 6px 16px rgba(0,0,0,0.4);
+        }
+        
+        .btn:active{
+            transform:translateY(0);
+            box-shadow:0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        .btn-clear{
+            background:#ff5c6c;
+            color:#fff;
+        }
+        
+        .btn-clear:hover{
+            background:#ff4757;
+        }
+
+        /* Footer */
+        .footer{
+            background:#ffffff;
+            border-radius:12px;
+            padding:16px;
+            margin-top:30px;
+            box-shadow:0 10px 30px rgba(2,6,23,0.45);
+            text-align:center;
+            color:#020b3f;
+            font-size:16px;
+            font-weight:600;
+        }
+
+        /* Responsive */
+        @media (max-width:768px){
+            .led{
+                width:24px;
+                height:24px;
+            }
+            
+            .led-grid{
+                gap:3px;
+            }
+            
+            .matrix-container{
+                padding:20px;
+            }
+        }
+        
+        @media (max-width:480px){
+            .led{
+                width:18px;
+                height:18px;
+            }
+            
+            .led-grid{
+                gap:2px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-top">
+            <h1>🔲 Arduino LED Matrix Controller 🔲</h1>
+            <p>Click on any square to toggle the LED • 13×8 Matrix (104 LEDs)</p>
+        </div>
+
+        <div class="status-wrap">
+            <div class="status" id="status">Ready</div>
+        </div>
+
+        <div class="matrix-container">
+            <h2 class="matrix-title">LED Matrix Display</h2>
+            
+            <div class="led-grid" id="ledGrid">
+                <!-- LEDs will be generated by JavaScript -->
+            </div>
+            
+            <div class="controls">
+                <button class="btn btn-clear" onclick="clearMatrix()">
+                    🗑️ Clear All
+                </button>
+            </div>
+        </div>
+
+        <div class="footer">
+            Arduino Uno Q • 13×8 LED Matrix • Web Controller
+        </div>
+    </div>
+
+    <script>
+        const MATRIX_COLS = 13;
+        const MATRIX_ROWS = 8;
+        
+        // Matrix state (2D array)
+        let matrixState = Array(MATRIX_ROWS).fill(0).map(() => Array(MATRIX_COLS).fill(0));
+        
+        // Initialize the LED grid
+        function initGrid() {
+            const grid = document.getElementById('ledGrid');
+            grid.innerHTML = '';
+            
+            for (let y = 0; y < MATRIX_ROWS; y++) {
+                for (let x = 0; x < MATRIX_COLS; x++) {
+                    const led = document.createElement('div');
+                    led.className = 'led';
+                    led.dataset.x = x;
+                    led.dataset.y = y;
+                    led.dataset.coords = `(${x},${y})`;
+                    led.onclick = () => toggleLED(x, y);
+                    grid.appendChild(led);
+                }
+            }
+        }
+        
+        // Toggle LED state
+        async function toggleLED(x, y) {
+            try {
+                const response = await fetch('/matrix/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({x: x, y: y})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update local state
+                    matrixState[y][x] = data.state;
+                    
+                    // Update UI
+                    updateLED(x, y, data.state);
+                    
+                    console.log(`LED (${x},${y}): ${data.state ? 'ON' : 'OFF'}`);
+                } else {
+                    console.error('Failed to toggle LED:', data.error);
+                }
+            } catch (error) {
+                console.error('Error toggling LED:', error);
+                updateStatus('Error: ' + error.message);
+            }
+        }
+        
+        // Update LED visual state
+        function updateLED(x, y, state) {
+            const led = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+            if (led) {
+                if (state) {
+                    led.classList.add('active');
+                } else {
+                    led.classList.remove('active');
+                }
+            }
+        }
+        
+        // Clear entire matrix
+        async function clearMatrix() {
+            try {
+                const response = await fetch('/matrix/clear', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Clear local state
+                    matrixState = Array(MATRIX_ROWS).fill(0).map(() => Array(MATRIX_COLS).fill(0));
+                    
+                    // Clear all LEDs
+                    document.querySelectorAll('.led').forEach(led => {
+                        led.classList.remove('active');
+                    });
+                    
+                    updateStatus('Matrix cleared');
+                    console.log('Matrix cleared');
+                } else {
+                    console.error('Failed to clear matrix:', data.error);
+                }
+            } catch (error) {
+                console.error('Error clearing matrix:', error);
+                updateStatus('Error: ' + error.message);
+            }
+        }
+        
+        // Update status message
+        function updateStatus(message) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+        }
+        
+        // Server-Sent Events for real-time updates
+        function connectSSE() {
+            const eventSource = new EventSource('/status');
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateStatus(data.status);
+                } catch (e) {
+                    console.error('SSE parse error:', e);
+                }
+            };
+            
+            eventSource.onerror = function(error) {
+                console.error('SSE error:', error);
+                eventSource.close();
+                
+                // Reconnect after 5 seconds
+                setTimeout(connectSSE, 5000);
+            };
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initGrid();
+            connectSSE();
+            console.log('LED Matrix Controller initialized');
+            console.log(`Matrix: ${MATRIX_COLS}x${MATRIX_ROWS} = ${MATRIX_COLS * MATRIX_ROWS} LEDs`);
+        });
+    </script>
+</body>
+</html>
