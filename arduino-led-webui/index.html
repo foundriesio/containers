@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Arduino LED Control</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+        :root{
+            --bg1:#071226; --bg2:#0b1a2b;
+            --panel:#0b1220;
+            --text:#e6eef8; --muted:#9fb0c8;
+            --accent:#020b3f;
+            --accent-rgb:2,11,63;
+            --glow: rgba(var(--accent-rgb), .28);
+            --tile-shadow:0 10px 28px rgba(0,0,0,.45);
+            --gap:16px;
+        }
+        html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1) 0%, var(--bg2) 100%);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+        .container{max-width:1200px;margin:30px auto;padding:20px}
+
+        /* Header */
+        .header-top{background:#ffffff;border-radius:12px;padding:18px;margin-bottom:24px;box-shadow:0 10px 30px rgba(2,6,23,0.45);text-align:center}
+        .header-top h1{margin:0;color:#020b3f;font-size:32px;font-weight:800}
+
+        /* Status */
+        .status-wrap{text-align:center;margin:20px 0}
+        .status{font-size:24px;font-weight:600;color:var(--text);padding:12px;background:rgba(255,255,255,0.05);border-radius:8px;display:inline-block}
+
+        /* Grid Container */
+        .grid-container{display:flex;gap:40px;justify-content:center;flex-wrap:wrap;margin:30px 0}
+        
+        /* LED Group */
+        .led-group{background:rgba(255,255,255,0.03);border-radius:16px;padding:24px;box-shadow:0 8px 24px rgba(0,0,0,0.3);min-width:280px}
+        .led-group h2{margin:0 0 20px 0;color:var(--text);font-size:22px;font-weight:700;text-align:center}
+        
+        /* Buttons */
+        .button-grid{display:flex;flex-direction:column;gap:12px}
+        .btn{padding:14px 20px;border:none;border-radius:8px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s ease;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;gap:8px}
+        .btn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,0.4)}
+        .btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+        
+        /* LED Colors */
+        .btn-red{background:#ff5c6c;color:#fff}
+        .btn-green{background:#2dd4bf;color:#fff}
+        .btn-blue{background:#1e90ff;color:#fff}
+        
+        .btn-red.active{box-shadow:0 0 20px #ff5c6c,0 4px 12px rgba(0,0,0,0.3)}
+        .btn-green.active{box-shadow:0 0 20px #2dd4bf,0 4px 12px rgba(0,0,0,0.3)}
+        .btn-blue.active{box-shadow:0 0 20px #1e90ff,0 4px 12px rgba(0,0,0,0.3)}
+        
+        /* Blink Button */
+        .btn-blink{background:rgba(255,255,255,0.1);color:var(--text);border:2px solid rgba(255,255,255,0.2)}
+        .btn-blink.blinking{background:#ff8a4c;color:#fff;border-color:#ff8a4c;animation:pulse 1s ease-in-out infinite}
+        
+        @keyframes pulse{
+            0%,100%{transform:scale(1);opacity:1}
+            50%{transform:scale(1.05);opacity:0.9}
+        }
+        
+        /* Icons */
+        .icon{width:20px;height:20px;display:inline-block}
+        
+        /* Footer */
+        .footer{background:#ffffff;border-radius:12px;padding:16px;margin-top:30px;box-shadow:0 10px 30px rgba(2,6,23,0.45);text-align:center;color:#020b3f;font-size:18px;font-weight:600}
+
+        /* Responsive */
+        @media (max-width:768px){
+            .grid-container{flex-direction:column;align-items:center}
+            .led-group{min-width:auto;width:100%;max-width:400px}
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header-top">
+            <h1>🔴 Arduino LED Control 🔵</h1>
+        </div>
+
+        <div class="status-wrap">
+            <div class="status" id="status">Ready</div>
+        </div>
+
+        <div class="grid-container">
+            <!-- LED3 Group (RGB) -->
+            <div class="led-group">
+                <h2>LED3 (RGB)</h2>
+                <div class="button-grid">
+                    <button class="btn btn-red" onclick="toggleLED('led3_r')" id="btn-led3-r">
+                        <span>🔴</span> Red
+                    </button>
+                    <button class="btn btn-blink" onclick="toggleBlink('led3_r')" id="blink-led3-r">
+                        <span>✨</span> Blink Red
+                    </button>
+                    
+                    <button class="btn btn-green" onclick="toggleLED('led3_g')" id="btn-led3-g">
+                        <span>🟢</span> Green
+                    </button>
+                    <button class="btn btn-blink" onclick="toggleBlink('led3_g')" id="blink-led3-g">
+                        <span>✨</span> Blink Green
+                    </button>
+                    
+                    <button class="btn btn-blue" onclick="toggleLED('led3_b')" id="btn-led3-b">
+                        <span>🔵</span> Blue
+                    </button>
+                    <button class="btn btn-blink" onclick="toggleBlink('led3_b')" id="blink-led3-b">
+                        <span>✨</span> Blink Blue
+                    </button>
+                </div>
+            </div>
+
+            <!-- LED4 Group (RGB) -->
+            <div class="led-group">
+                <h2>LED4 (RGB)</h2>
+                <div class="button-grid">
+                    <button class="btn btn-red" onclick="toggleLED('led4_r')" id="btn-led4-r">
+                        <span>🔴</span> Red
+                    </button>
+                    <button class="btn btn-blink" onclick="toggleBlink('led4_r')" id="blink-led4-r">
+                        <span>✨</span> Blink Red
+                    </button>
+                    
+                    <button class="btn btn-green" onclick="toggleLED('led4_g')" id="btn-led4-g">
+                        <span>🟢</span> Green
+                    </button>
+                    <button class="btn btn-blink" onclick="toggleBlink('led4_g')" id="blink-led4-g">
+                        <span>✨</span> Blink Green
+                    </button>
+                    
+                    <button class="btn btn-blue" onclick="toggleLED('led4_b')" id="btn-led4-b">
+                        <span>🔵</span> Blue
+                    </button>
+                    <button class="btn btn-blink" onclick="toggleBlink('led4_b')" id="blink-led4-b">
+                        <span>✨</span> Blink Blue
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Click buttons to control Arduino LEDs
+        </div>
+    </div>
+
+    <script>
+        // Track LED and blink states
+        const ledStates = {
+            led3_r: false, led3_g: false, led3_b: false,
+            led4_r: false, led4_g: false, led4_b: false
+        };
+        
+        const blinkStates = {
+            led3_r: false, led3_g: false, led3_b: false,
+            led4_r: false, led4_g: false, led4_b: false
+        };
+
+        // Toggle LED on/off
+        async function toggleLED(led) {
+            try {
+                const response = await fetch(`/toggle/${led}`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    ledStates[led] = data.state;
+                    const btn = document.getElementById(`btn-${led.replace('_', '-')}`);
+                    if (data.state) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                    updateStatus(`${led.toUpperCase()}: ${data.state ? 'ON' : 'OFF'}`);
+                }
+            } catch (error) {
+                console.error('Error toggling LED:', error);
+                updateStatus('Error: Could not toggle LED');
+            }
+        }
+
+        // Toggle blink animation
+        async function toggleBlink(led) {
+            try {
+                const isBlinking = blinkStates[led];
+                const endpoint = isBlinking ? 'stop_blink' : 'start_blink';
+                
+                const response = await fetch(`/${endpoint}/${led}`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    blinkStates[led] = data.blinking;
+                    const btn = document.getElementById(`blink-${led.replace('_', '-')}`);
+                    if (data.blinking) {
+                        btn.classList.add('blinking');
+                        btn.innerHTML = '<span>⏹️</span> Stop Blink';
+                    } else {
+                        btn.classList.remove('blinking');
+                        const color = led.split('_')[1].toUpperCase();
+                        btn.innerHTML = `<span>✨</span> Blink ${color === 'R' ? 'Red' : color === 'G' ? 'Green' : 'Blue'}`;
+                    }
+                    updateStatus(`${led.toUpperCase()} blink: ${data.blinking ? 'STARTED' : 'STOPPED'}`);
+                }
+            } catch (error) {
+                console.error('Error toggling blink:', error);
+                updateStatus('Error: Could not toggle blink');
+            }
+        }
+
+        // Update status message
+        function updateStatus(message) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            setTimeout(() => {
+                statusEl.textContent = 'Ready';
+            }, 2000);
+        }
+
+        // Connect to Server-Sent Events for real-time updates
+        const eventSource = new EventSource('/status');
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.status) {
+                document.getElementById('status').textContent = data.status;
+            }
+        };
+        eventSource.onerror = function(error) {
+            console.error('SSE Error:', error);
+        };
+    </script>
+</body>
+</html>
