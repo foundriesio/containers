@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025, Foundries.io
+
+services:
+  arduino-voice-mqtt:
+    build: .
+    # image: hub.foundries.io/${FACTORY}/arduino-voice-mqtt:latest
+    restart: unless-stopped
+    network_mode: "host"
+    privileged: true
+    stdin_open: true     # -i
+    tty: true            # -t
+    group_add:
+      - "audio"
+    devices:
+      - "/dev/snd:/dev/snd"
+    volumes:
+      - /var/local/assets:/var/local/assets
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+        MQTT_HOST: "127.0.0.1"
+        MQTT_PORT: "1883"
+        MQTT_USER: "foundries.io"
+        MQTT_PASS: "foundries.io"
+        THRESH: "0.70"
+        DEBUG: "0"
+        DEBOUNCE_SECONDS: "0.5"
+        SELECT_COOLDOWN_SECONDS: "1.0"
+        SELECT_SUPPRESS_SECONDS: "8.0"
+        PA_ALSA_PLUGHW: "1"
+        PA_ALSA_CARD: "1"
+        PA_ALSA_DEVICE: "0"

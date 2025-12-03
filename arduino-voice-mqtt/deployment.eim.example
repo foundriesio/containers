@@ -1,0 +1,62 @@
+# Edge Impulse Model Required
+
+This project requires an Edge Impulse model file named `deployment.eim`.
+
+## How to Create Your Own Model
+
+1. **Create an Edge Impulse Account**: https://edgeimpulse.com/
+
+2. **Create a New Project** with these settings:
+   - **Data type**: Time series data
+   - **Input axes**: audio
+   - **Window size**: 1ms
+   - **Frequency**: 16000 Hz
+
+3. **Collect Audio Samples**: Record samples for your voice commands (e.g., "blue", "green", "red", "yellow", "select")
+
+4. **Configure Processing Block - Audio MFE**:
+   - **Signal**: audio
+   - **Frame length**: 0.02
+   - **Frame stride**: 0.01
+   - **Filter Number**: 40
+   - **FFT length**: 256
+   - **Low Frequency**: 0
+   - **Noise floor**: -52
+
+5. **Configure Learning Block - Transfer Learning (Keyword Spotting)**:
+   - **Input**: MFE
+   - **Number of training cycles**: 30
+   - **Learning rate**: 0.01
+   - **Training processor**: CPU
+   - **Use learned optimizer**: Not set
+
+6. **Train Your Model**: Click "Start training" in Edge Impulse Studio
+
+7. **Download the Model**:
+   - Go to "Deployment" tab
+   - Select **"Linux AARCH64"** (ARM64 architecture)
+   - Select **"Unoptimized (float32)"**
+   - Download the `.eim` file
+
+8. **Place the Model**: 
+   - Rename it to `deployment.eim`
+   - Place it in this directory (same location as this file)
+
+## Model Requirements
+
+- **Type**: Audio classification (Keyword Spotting)
+- **Architecture**: Transfer Learning
+- **Format**: `.eim` (Edge Impulse Model)
+- **Target**: Linux AARCH64 (ARM64)
+- **Optimization**: Unoptimized (float32)
+- **Expected filename**: `deployment.eim`
+
+## Build Instructions
+
+After placing your `deployment.eim` file:
+
+```bash
+docker build -t arduino-voice-webui .
+```
+
+For more information, see the main README.md
