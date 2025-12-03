@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025, Foundries.io
+
+version: "3.9"
+
+services:
+  mosquitto:
+    image: hub.foundries.io/${FACTORY}/mosquitto:latest
+    restart: unless-stopped
+    ports:
+      - "1883:1883"   # MQTT TCP
