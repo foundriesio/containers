@@ -220,14 +220,14 @@ Interactive LED matrix menu controller with 30+ images and animations (legacy pr
 1. **Add this repository as a remote:**
 ```bash
 cd /path/to/your/containers.git
-git remote add arduino-demo https://github.com/munoz0raul/arduino-demo
+git remote add containers https://github.com/foundriesio/containers/
 git remote update
 ```
 
 2. **Checkout desired application:**
 ```bash
 # Example: Deploy voice-controlled tree
-git checkout remotes/arduino-demo/main -- arduino-voice-webui
+git checkout remotes/containers/arduino-demo-25Q4 -- arduino-voice-webui
 ```
 
 3. **Commit and push:**
@@ -283,7 +283,7 @@ To run the complete integrated system with MQTT messaging:
 
 1. **Deploy the MQTT broker container:**
 ```bash
-git checkout remotes/arduino-demo/main -- mosquitto
+git checkout remotes/containers/arduino-demo-25Q4 -- mosquitto
 git add mosquitto
 git commit -m "Deploy Mosquitto MQTT broker"
 git push
@@ -299,9 +299,9 @@ git push
 
 3. **Deploy all three MQTT-enabled applications:**
 ```bash
-git checkout remotes/arduino-demo/main -- arduino-elf-mqtt
-git checkout remotes/arduino-demo/main -- arduino-voice-mqtt
-git checkout remotes/arduino-demo/main -- arduino-led-matrix-mqtt
+git checkout remotes/containers/arduino-demo-25Q4 -- arduino-elf-mqtt
+git checkout remotes/containers/arduino-demo-25Q4 -- arduino-voice-mqtt
+git checkout remotes/containers/arduino-demo-25Q4 -- arduino-led-matrix-mqtt
 git add arduino-elf-mqtt arduino-voice-mqtt arduino-led-matrix-mqtt
 git commit -m "Deploy integrated MQTT system"
 git push
