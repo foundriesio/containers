@@ -66,13 +66,10 @@ RUN pip install --upgrade pip setuptools wheel && \
 # Arduino APT Configuration
 RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-deb-images/arduino/debos-recipes/overlays/arduino-unoq-releases/etc/apt/keyrings/arduino.asc \
     -o /etc/apt/keyrings/arduino.asc && \
-    curl -fsSL https://raw.githubusercontent.com/arduino/arduino-deb-images/arduino/debos-recipes/overlays/arduino-unoq-releases/etc/apt/auth.conf.d/arduino.conf \
-    -o /etc/apt/auth.conf.d/arduino.conf && \
     curl -fsSL https://raw.githubusercontent.com/arduino/arduino-deb-images/arduino/debos-recipes/overlays/arduino-unoq-releases/etc/apt/sources.list.d/arduino.list \
     -o /etc/apt/sources.list.d/arduino.list && \
-    chmod 644 /etc/apt/keyrings/arduino.asc && \
-    chmod 600 /etc/apt/auth.conf.d/arduino.conf
-
+    chmod 644 /etc/apt/keyrings/arduino.asc
+ 
 RUN apt-get update && apt-get install -y arduino-cli && \
     apt-get clean
 
