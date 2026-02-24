@@ -96,11 +96,9 @@ FROM debian:trixie-slim
 ENV DEBIAN_FRONTEND=noninteractive
 
 COPY arduino.asc /etc/apt/keyrings/arduino.asc
-COPY arduino.conf /etc/apt/auth.conf.d/arduino.conf
 COPY arduino.list /etc/apt/sources.list.d/arduino.list
 
-RUN chmod 644 /etc/apt/keyrings/arduino.asc && \
-    chmod 600 /etc/apt/auth.conf.d/arduino.conf
+RUN chmod 644 /etc/apt/keyrings/arduino.asc
 
 RUN apt-get update && \
     apt-get install -y apt-transport-https ca-certificates
@@ -127,16 +125,13 @@ Before installing `arduino-cli`, we configure the Arduino package repository:
 
 ```dockerfile
 COPY arduino.asc /etc/apt/keyrings/arduino.asc
-COPY arduino.conf /etc/apt/auth.conf.d/arduino.conf
 COPY arduino.list /etc/apt/sources.list.d/arduino.list
 
-RUN chmod 644 /etc/apt/keyrings/arduino.asc && \
-    chmod 600 /etc/apt/auth.conf.d/arduino.conf
+RUN chmod 644 /etc/apt/keyrings/arduino.asc
 ```
 
 These files provide:
 - **`arduino.asc`**: GPG key for package verification
-- **`arduino.conf`**: Authentication configuration
 - **`arduino.list`**: Package repository source list
 
 ### Installing Dependencies
