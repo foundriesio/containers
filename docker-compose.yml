@@ -1,0 +1,45 @@
+services:
+    sketch:
+        image: hub.foundries.io/${FACTORY}/led-matrix-painter-sketch:latest
+        privileged: true
+        command:
+            - /opt/openocd/bin/arduino-flash.sh
+            - /sketch.ino.elf-zsk.bin
+        restart: on-failure
+        volumes:
+            - /opt:/opt
+
+    py:
+        image: hub.foundries.io/${FACTORY}/led-matrix-painter-py:latest
+        entrypoint: /run.sh
+        extra_hosts:
+            - msgpack-rpc-router:host-gateway
+        restart: unless-stopped
+        ports:
+            - 7000:7000
+        devices:
+            - /dev/video0
+            - /dev/snd
+            - /dev/dri
+        volumes:
+            - source: /var/run/arduino-router.sock
+              target: /var/run/arduino-router.sock
+              type: bind
+            - source: /sys/class/leds/blue:user
+              target: /sys/class/leds/blue:user
+              type: bind
+            - source: /sys/class/leds/green:user
+              target: /sys/class/leds/green:user
+              type: bind
+            - source: /sys/class/leds/red:user
+              target: /sys/class/leds/red:user
+              type: bind
+            - source: /sys/class/leds/blue:bt
+              target: /sys/class/leds/blue:bt
+              type: bind
+            - source: /sys/class/leds/green:wlan
+              target: /sys/class/leds/green:wlan
+              type: bind
+            - source: /sys/class/leds/red:panic
+              target: /sys/class/leds/red:panic
+              type: bind
