@@ -1,0 +1,45 @@
+services:
+    py:
+        image: hub.foundries.io/${FACTORY}/video-generic-object-detection-py:latest
+        entrypoint: /run.sh
+        environment:
+            BIND_ADDRESS: 0.0.0.0
+            CUSTOM_MODEL_PATH: /home/arduino/.arduino-bricks/ei-models
+            EI_OBJ_DETECTION_MODEL: /models/ootb/ei/yolo-x-nano.eim
+            VIDEO_DEVICE: /dev/video1
+
+        extra_hosts:
+            - msgpack-rpc-router:host-gateway
+        restart: unless-stopped
+        ports:
+            - 7000:7000
+        volumes:
+            - source: /var/run/arduino-router.sock
+              target: /var/run/arduino-router.sock
+              type: bind
+
+    # The app.yaml specifies this brick configuration:
+    # https://github.com/arduino/app-bricks-py/blob/main/src/arduino/app_bricks/video_objectdetection/brick_config.yaml
+    # https://github.com/arduino/app-bricks-py/blob/main/src/arduino/app_bricks/video_objectdetection/brick_compose.yaml
+    ei-video-obj-detection-runner:
+        image: ${DOCKER_REGISTRY_BASE:-ghcr.io/arduino/}app-bricks/ei-models-runner:0.6.1
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "5m"
+                max-file: "2"
+        ports:
+            - ${BIND_ADDRESS:-0.0.0.0}:4912:4912  # Embedded UI port
+        volumes:
+            - "${CUSTOM_MODEL_PATH:-/home/arduino/.arduino-bricks}:${CUSTOM_MODEL_PATH:-/home/arduino/.arduino-bricks}"
+            - "/run/udev:/run/udev"
+        command: ["--model-file", "${EI_OBJ_DETECTION_MODEL:-/models/ootb/ei/yolo-x-nano.eim}", "--dont-print-predictions", "--mode", "streaming", "--preview-original-resolution"]
+        healthcheck:
+            test: [ "CMD-SHELL", "netstat -tuln | grep :5050 || exit 1" ]
+            interval: 2s
+            timeout: 2s
+            retries: 25
+        devices:
+            - /dev/video0
+            - /dev/video1
+            - /dev/video2
