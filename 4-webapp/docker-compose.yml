@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  webapp:
+    image: webapp:latest
+    container_name: webapp
+    network_mode: "host"
+    restart: unless-stopped
