@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  webapp-led-mcu-voice:
+    image: webapp-led-mcu-voice:latest
+    container_name: webapp-led-mcu-voice
+    restart: unless-stopped
+    network_mode: "host"
+    privileged: true
+    stdin_open: true     # -i
+    tty: true            # -t
+    group_add:
+      - "audio"
+    volumes:
+      - /var/run/arduino-router.sock:/var/run/arduino-router.sock
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      THRESH: "0.70"
+      DEBOUNCE_SECONDS: "0.5"
+      SELECT_COOLDOWN_SECONDS: "1.0"
+      SELECT_SUPPRESS_SECONDS: "8.0"
+      PA_ALSA_PLUGHW: "1"
+      PA_ALSA_CARD: "1"
+      PA_ALSA_DEVICE: "0"

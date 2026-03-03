@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  webapp-led-mcu:
+    image: webapp-led-mcu:latest
+    container_name: webapp-led-mcu
+    network_mode: "host"
+    privileged: true
+    volumes:
+      - /var/run/arduino-router.sock:/var/run/arduino-router.sock
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped

@@ -1,0 +1,6 @@
+version: '3.6'
+
+services:
+  hello-c:
+    image: hello-c:latest
+    container_name: hello-c
