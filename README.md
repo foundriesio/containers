@@ -1,7 +1,7 @@
 # Video Generic Object Detection ComposeApp
 
 This repository serves as an example of how to bundle the
-[Video Generic Object Detection](https://github.com/arduino/app-bricks-examples/tree/release-0.6/examples/video-generic-object-detection)
+[Video Generic Object Detection](https://github.com/arduino/app-bricks-examples/tree/0.6.3/examples/video-generic-object-detection)
 example application as a FoundriesFactory ComposeApp.
 
 It can be added to your Factory by cloning your Factory's containers.git
