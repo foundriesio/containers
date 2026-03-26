@@ -19,7 +19,8 @@ moving from prototype to production.
 
 In this lab you will:
 
-- Create an Edge Impulse project
+- Create a free [Edge Impulse account](https://edgeimp.com/foundries-ew26)
+- [Clone this project](https://studio.edgeimpulse.com/public/913211/live?utm_medium=live_event&utm_source=tradeshow&utm_campaign=36403052-embedded_world_2026&utm_content=foundries_workshop_public_project)
 - Explore an existing dataset
 - Generate features
 - Train a model
@@ -30,11 +31,17 @@ In this lab you will:
 
 ## Steps
 
+### 0) Create an Edge Impulse account
+
+Create a free [Edge Impulse account](https://edgeimp.com/foundries-ew26) to start training your ML model.
+
+---
+
 ### 1) Clone the reference project
 
 Open the public Edge Impulse project:
 
-Embedded World 2026 – Foundries Keyword Dataset
+[Embedded World 2026 – Foundries Keyword Dataset](https://studio.edgeimpulse.com/public/913211/live?utm_medium=live_event&utm_source=tradeshow&utm_campaign=36403052-embedded_world_2026&utm_content=foundries_workshop_public_project)
 
 Clone the project into your account.
 
@@ -80,7 +87,7 @@ Open the MFE processing block.
 
 Click:
 
-Generate Features
+`Generate Features`
 
 ![Generate Features](assets/edgeimpulse-4.png)
 
