@@ -1,0 +1,56 @@
+name: video-object-detection-app
+
+services:
+  ei-video-obj-detection-runner:
+    # https://github.com/arduino/app-bricks-py/blob/release/0.9.0/src/arduino/app_bricks/video_objectdetection/brick_compose.yaml
+    image: ${DOCKER_REGISTRY_BASE:-ghcr.io/arduino/}app-bricks/ei-models-runner:0.9.0
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    ports:
+      - ${BIND_ADDRESS:-0.0.0.0}:4912:4912  # Embedded UI port
+    volumes:
+      - "${CUSTOM_MODEL_PATH:-/home/arduino/.arduino-bricks}:${CUSTOM_MODEL_PATH:-/home/arduino/.arduino-bricks}"
+      - "/run/udev:/run/udev"
+    command:
+      [
+        "--model-file", "${EI_V_OBJ_DETECTION_MODEL:-/models/ootb/ei/yolo-x-nano.eim}",
+        "--gst-source", "tcpserversrc host=0.0.0.0 port=5050 ! jpegdec",
+        "--dont-print-predictions",
+        "--preview-original-resolution"
+      ]
+    healthcheck:
+      test: [ "CMD-SHELL", "grep -i ':13BA' /proc/net/tcp | grep ' 0A ' || exit 1" ]
+      interval: 2s
+      timeout: 2s
+      retries: 25
+
+  main:
+    # The image can be built and hosted outside of the FoundriesFactory CI and registry,
+    # read this guide https://docs.foundries.io/96/user-guide/custom-ci/custom-ci-for-apps.html#ug-custom-ci-for-apps
+    # and check the example https://github.com/foundriesio/custom-ci-app/blob/custom-ci-devel/.github/workflows/fio-app-ci-ecr.yml
+    image: hub.foundries.io/${FACTORY}/video-obj-detect:latest
+    depends_on:
+      ei-video-obj-detection-runner:
+        condition: service_healthy
+        required: true
+    devices:
+      - /dev/video0:/dev/video0
+      - /dev/video1:/dev/video1
+      - /dev/video2:/dev/video2
+      - /dev/video3:/dev/video3
+    entrypoint:
+      - /run.sh
+    group_add:
+      - video
+    logging:
+      driver: json-file
+      options:
+        max-file: "2"
+        max-size: 5m
+    ports:
+      - 7000:7000
+    volumes:
+      - /dev/v4l:/dev/v4l
