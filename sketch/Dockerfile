@@ -4,7 +4,7 @@ RUN \
 	apt update && \
 	apt install -y wget
 
-ARG CLI_VERSION=1.4.1
+ARG CLI_VERSION=v1.4.2-rc.1
 RUN \
 	wget https://downloads.arduino.cc/arduino-cli/arduino-cli_${CLI_VERSION}_Linux_ARM64.tar.gz && \
 	tar -xzf arduino-cli_${CLI_VERSION}_Linux_ARM64.tar.gz
