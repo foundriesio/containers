@@ -1,9 +1,9 @@
 profiles:
   default:
     platforms:
-      - platform: arduino:zephyr (0.55.0)
+      - platform: arduino:zephyr (0.54.1)
     libraries:
-      - Arduino_RouterBridge (0.4.1)
+      - Arduino_RouterBridge (0.3.0)
       - dependency: Arduino_RPClite (0.2.1)
       - dependency: ArxContainer (0.7.0)
       - dependency: ArxTypeTraits (0.3.2)
