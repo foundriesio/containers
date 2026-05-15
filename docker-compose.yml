@@ -43,3 +43,10 @@ services:
             - source: /sys/class/leds/red:panic
               target: /sys/class/leds/red:panic
               type: bind
+  
+        group_add:
+          - "44"
+          - "29"
+          - "991"
+          - "20"
+          - "1001"
