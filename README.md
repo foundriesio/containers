@@ -60,17 +60,22 @@ device agent"]
 ## Project Structure
 
 ```bash
-tree -aL2
+tree -aL2 -I .git
 .
-├── .composeappignores
 ├── app
 │   ├── app.yaml
 │   ├── assets
 │   ├── python
 │   └── README.md
+├── .composeappignores
 ├── docker-compose.yml
 ├── Dockerfile
-└── install.sh
+├── install.sh
+├── LICENSE
+├── models
+│   └── model.eim
+└── README.md
+
 ```
 
 ## Components
@@ -111,6 +116,10 @@ produced by `composectl publish`.
 Only `docker-compose.yml` is included in the final Compose App
 bundle, since the rest of the App content is packaged 
 into container images.
+
+### `models/`
+
+Contains ML model artifacts packaged as part of the Compose App bundle and used by the `video_object_detection` service at runtime.
 
 ## Deploy with FoundriesFactory
 
